@@ -659,7 +659,44 @@ def build_flow_metrics():
 
 
 # =========================================================
-#  PARTE 4 — Injeção nos blocos JSON do index.html
+#  PARTE 4 — Fila de Priorização (Backlog Priority / Stack Rank real)
+# =========================================================
+def build_priority_queue():
+    print("Buscando Fila de Priorização (itens Novo/A fazer, todos os tipos)...")
+    QUEUE_TYPES = "'Discovery','Feature','Solicitação','Melhoria','User Story','Bug','Spike'"
+    q = (f"SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project "
+         f"AND [System.WorkItemType] IN ({QUEUE_TYPES}) "
+         f"AND [System.State] IN ('A fazer','New')")
+    ids = [wi["id"] for wi in wiql(q).get("workItems", [])]
+    fields = ["System.Id", "System.WorkItemType", "System.State", "System.Title",
+              "Microsoft.VSTS.Common.StackRank", "Microsoft.VSTS.Common.Priority", "System.AssignedTo"]
+    items = batch_fetch(ids, fields)
+
+    def sort_key(it):
+        rank = it["fields"].get("Microsoft.VSTS.Common.StackRank")
+        has_rank = rank is not None
+        return (not has_rank, rank if has_rank else it["fields"]["System.Id"])
+
+    items.sort(key=sort_key)
+
+    PRIO_LABEL = {1: "Crítica", 2: "Alta", 3: "Média", 4: "Baixa"}
+    queue = []
+    for pos, it in enumerate(items, start=1):
+        f = it["fields"]
+        assignee = f.get("System.AssignedTo")
+        queue.append({
+            "position": pos, "id": f["System.Id"], "type": f["System.WorkItemType"],
+            "title": f["System.Title"], "state": f["System.State"],
+            "priority": f.get("Microsoft.VSTS.Common.Priority"),
+            "priorityLabel": PRIO_LABEL.get(f.get("Microsoft.VSTS.Common.Priority")),
+            "assignee": assignee.get("displayName") if isinstance(assignee, dict) else None,
+        })
+    print(f"  Fila de Priorização: {len(queue)} itens.")
+    return queue
+
+
+# =========================================================
+#  PARTE 5 — Injeção nos blocos JSON do index.html
 # =========================================================
 def replace_json_block(html, script_id, new_data):
     pattern = re.compile(rf'(<script id="{script_id}" type="application/json">)(.*?)(</script>)', re.DOTALL)
@@ -690,10 +727,12 @@ def main():
     else:
         median_spike_cycle = 4.2  # fallback histórico conhecido
     timeline_cards = build_timeline_cards(roadmap_data, roadmap_nodes, children_of, iter_map, median_spike_cycle)
+    priority_queue = build_priority_queue()
 
     html = replace_json_block(html, "roadmap-data", roadmap_data)
     html = replace_json_block(html, "timeline-cards-data", timeline_cards)
     html = replace_json_block(html, "flow-metrics-data", flow_data)
+    html = replace_json_block(html, "priority-queue-data", priority_queue)
 
     with open(INDEX_PATH, "w", encoding="utf-8") as fh:
         fh.write(html)
