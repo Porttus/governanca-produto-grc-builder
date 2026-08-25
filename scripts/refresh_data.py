@@ -266,7 +266,7 @@ def fetch_iterations():
     return iter_map
 
 
-def build_timeline_cards(roadmap_data, roadmap_nodes, children_of, iter_map):
+def build_timeline_cards(roadmap_data, roadmap_nodes, children_of, iter_map, median_spike_cycle):
     print("Buscando datas (Start/Target) para cards da Timeline...")
     # Apenas Feature/Solicitação/Discovery alcançáveis a partir das árvores
     # ativas (epics.full + discovery.full) — não do universo total do projeto.
@@ -311,14 +311,29 @@ def build_timeline_cards(roadmap_data, roadmap_nodes, children_of, iter_map):
         assignee = f.get("System.AssignedTo")
         start_date = f.get("Microsoft.VSTS.Scheduling.StartDate")
         target_date = f.get("Microsoft.VSTS.Scheduling.TargetDate")
+        date_source = "real" if (start_date and target_date) else None
         # O Azure DevOps da Porttus limpa Start/Target Date quando o item é
         # fechado ("Feito"/"Closed") — para não perder o item do Roadmap
-        # Visual, usamos como substituto as datas reais de ativação/fechamento
-        # (nunca inventamos data para itens ainda em aberto sem agendamento).
+        # Visual, usamos como substituto as datas reais de ativação/fechamento.
         if not start_date or not target_date:
             if n["state"] in RESOLVED:
                 start_date = start_date or f.get("Microsoft.VSTS.Common.ActivatedDate") or f.get("System.CreatedDate")
                 target_date = target_date or f.get("Microsoft.VSTS.Common.ClosedDate") or f.get("System.ChangedDate")
+                date_source = date_source or "historico_real"
+            else:
+                # Item ainda em aberto sem agendamento definido: estima a data
+                # de entrega via Lei de Little — Start = início real do trabalho
+                # (ou criação, se ainda não começou) + mediana histórica de
+                # Cycle Time de Spike por sub-item (mesma lógica usada na
+                # Visão Estratégica para os itens de Discovery).
+                est_start = start_date or f.get("Microsoft.VSTS.Common.ActivatedDate") or f.get("System.CreatedDate")
+                if est_start:
+                    est_start_dt = parse_dt(est_start)
+                    est_days = max(1, total) * median_spike_cycle
+                    est_target_dt = est_start_dt + timedelta(days=round(est_days))
+                    start_date = start_date or est_start
+                    target_date = target_date or est_target_dt.isoformat()
+                    date_source = date_source or "estimativa_lei_de_little"
         iteration_path = f.get("System.IterationPath")
         sprint = iter_map.get(iteration_path) if iteration_path else None
         raw_tags = f.get("System.Tags", "") or ""
@@ -328,9 +343,14 @@ def build_timeline_cards(roadmap_data, roadmap_nodes, children_of, iter_map):
             "pct": pct, "startDate": start_date[:10] if start_date else None,
             "targetDate": target_date[:10] if target_date else None,
             "assignee": assignee.get("displayName") if isinstance(assignee, dict) else None,
-            "tags": tags_list, "sprint": sprint,
+            "tags": tags_list, "sprint": sprint, "dateSource": date_source,
         })
-    print(f"  Timeline cards: {len(cards)}")
+    n_real = sum(1 for c in cards if c["dateSource"] == "real")
+    n_hist = sum(1 for c in cards if c["dateSource"] == "historico_real")
+    n_est = sum(1 for c in cards if c["dateSource"] == "estimativa_lei_de_little")
+    n_none = sum(1 for c in cards if c["dateSource"] is None)
+    print(f"  Timeline cards: {len(cards)} (datas reais: {n_real}, histórico real: {n_hist}, "
+          f"estimadas via Lei de Little: {n_est}, sem data: {n_none})")
     return cards
 
 
@@ -660,8 +680,15 @@ def main():
 
     roadmap_data, roadmap_nodes, children_of = build_roadmap_tree()
     iter_map = fetch_iterations()
-    timeline_cards = build_timeline_cards(roadmap_data, roadmap_nodes, children_of, iter_map)
     flow_data = build_flow_metrics()
+    median_spike_cycle = None
+    if flow_data["by_type"].get("Spike") and flow_data["by_type"]["Spike"]["cycle_time"]["median"] is not None:
+        median_spike_cycle = flow_data["by_type"]["Spike"]["cycle_time"]["median"]
+    elif flow_data["overall"]["cycle_time"]["median"] is not None:
+        median_spike_cycle = flow_data["overall"]["cycle_time"]["median"]
+    else:
+        median_spike_cycle = 4.2  # fallback histórico conhecido
+    timeline_cards = build_timeline_cards(roadmap_data, roadmap_nodes, children_of, iter_map, median_spike_cycle)
 
     html = replace_json_block(html, "roadmap-data", roadmap_data)
     html = replace_json_block(html, "timeline-cards-data", timeline_cards)
