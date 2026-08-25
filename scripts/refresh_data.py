@@ -321,12 +321,14 @@ def build_timeline_cards(roadmap_data, roadmap_nodes, children_of, iter_map):
                 target_date = target_date or f.get("Microsoft.VSTS.Common.ClosedDate") or f.get("System.ChangedDate")
         iteration_path = f.get("System.IterationPath")
         sprint = iter_map.get(iteration_path) if iteration_path else None
+        raw_tags = f.get("System.Tags", "") or ""
+        tags_list = [t.strip() for t in raw_tags.split(";") if t.strip()]
         cards.append({
             "id": str(id_), "type": n["type"], "title": n["title"], "state": n["state"],
             "pct": pct, "startDate": start_date[:10] if start_date else None,
             "targetDate": target_date[:10] if target_date else None,
             "assignee": assignee.get("displayName") if isinstance(assignee, dict) else None,
-            "tags": f.get("System.Tags", ""), "sprint": sprint,
+            "tags": tags_list, "sprint": sprint,
         })
     print(f"  Timeline cards: {len(cards)}")
     return cards
