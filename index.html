@@ -887,10 +887,11 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
   flex:none; font:700 10px 'Inter'; text-transform:uppercase; letter-spacing:.03em;
   padding:3px 9px; border-radius:100px;
 }
-.pq-prio.p1, .pq-prio.p2{ background:rgba(229,72,77,.18); color:#FF8A8D; }
-.pq-prio.p3{ background:var(--t-yellow-soft); color:var(--t-yellow); }
-.pq-prio.p4{ background:var(--surface-2); color:var(--ink-soft); }
-.pq-prio.pnone{ background:var(--surface-2); color:var(--ink-soft); opacity:.5; }
+.pq-prio.p1{ background:rgba(229,72,77,.20); color:#FF8A8D; border:1px solid rgba(229,72,77,.4); }
+.pq-prio.p2{ background:var(--t-orange-soft); color:var(--t-orange); border:1px solid rgba(242,153,74,.4); }
+.pq-prio.p3{ background:var(--t-yellow-soft); color:var(--t-yellow); border:1px solid rgba(251,191,36,.4); }
+.pq-prio.p4{ background:var(--t-blue-soft); color:var(--t-blue); border:1px solid rgba(91,141,239,.4); }
+.pq-prio.pnone{ background:transparent; color:var(--ink-soft); border:1px dashed var(--line-strong); opacity:.7; }
 .pq-assignee{ flex:none; font-size:11px; color:var(--ink-soft); min-width:90px; text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
 .vr-section{ padding:20px clamp(20px,3vw,56px) 8px; }
@@ -1081,8 +1082,15 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
   <main class="timeline-main">
     <div class="pq-section">
       <div class="pq-header">
-        <h3 class="pq-title">📋 Fila de Priorização</h3>
+        <h3 class="pq-title">📋 Fila de Priorização <span class="fm-badge-count" id="pq-count"></span></h3>
         <p class="pq-sub">Ordem real do backlog no Azure DevOps (Backlog Priority) — itens de execução ainda não iniciados (<b>Novo</b> / <b>A fazer</b>). É a sequência exata em que o time pretende puxar o próximo trabalho.</p>
+      </div>
+      <div class="chip-group" id="pq-type-filter" style="margin-bottom:12px;">
+        <div class="chip active" data-type="">Todos</div>
+        <div class="chip" data-type="Melhoria">Melhoria</div>
+        <div class="chip" data-type="User Story">User Story</div>
+        <div class="chip" data-type="Bug">Bug</div>
+        <div class="chip" data-type="Spike">Spike</div>
       </div>
       <div class="pq-list" id="pq-list"></div>
     </div>
@@ -1929,7 +1937,7 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
     });
     tabTimeline.addEventListener('click', function(){
       activate(tabTimeline, pageTimeline);
-      if(!timelineBuilt){ timelineBuilt = true; buildTimeline(); buildVisualRoadmap(); buildPriorityQueue(); }
+      if(!timelineBuilt){ timelineBuilt = true; buildTimeline(); buildVisualRoadmap(); wirePriorityQueueFilter(); buildPriorityQueue(); }
     });
     tabFlow.addEventListener('click', function(){
       activate(tabFlow, pageFlow);
@@ -2128,13 +2136,19 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
   //  iniciados (Novo / A fazer).
   // =========================================================
   var PQ_TYPE_ICON = { 'Melhoria':'🔧', 'User Story':'📘', 'Bug':'🐞', 'Spike':'🔎' };
+  var pqState = { type: '' };
 
   function buildPriorityQueue(){
     var list = document.getElementById('pq-list');
     if(!list) return;
     var queue = window.PRIORITY_QUEUE || [];
+    if(pqState.type){
+      queue = queue.filter(function(it){ return it.type === pqState.type; });
+    }
+    var countEl = document.getElementById('pq-count');
+    if(countEl) countEl.textContent = queue.length;
     if(!queue.length){
-      list.innerHTML = '<div class="empty-state" style="padding:30px 20px;"><div class="big">Fila vazia</div><div>Nenhum item em Novo/A fazer encontrado.</div></div>';
+      list.innerHTML = '<div class="empty-state" style="padding:30px 20px;"><div class="big">Fila vazia</div><div>Nenhum item encontrado com esse filtro.</div></div>';
       return;
     }
     list.innerHTML = queue.map(function(it){
@@ -2150,6 +2164,17 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
         '<span class="pq-prio '+prioClass+'">'+escapeHtml(prioLabel)+'</span>' +
       '</a>';
     }).join('');
+  }
+
+  function wirePriorityQueueFilter(){
+    var chips = document.querySelectorAll('#pq-type-filter .chip');
+    Array.prototype.forEach.call(chips, function(chip){
+      chip.addEventListener('click', function(){
+        pqState.type = chip.dataset.type || '';
+        Array.prototype.forEach.call(chips, function(c){ c.classList.toggle('active', c === chip); });
+        buildPriorityQueue();
+      });
+    });
   }
 
   function buildVisualRoadmap(){
