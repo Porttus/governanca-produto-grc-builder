@@ -714,13 +714,18 @@ table.fm-table .fm-type-badge{ font-size:11px; font-weight:700; padding:3px 9px;
 .tl-card.type-Feature{ border-left-color:var(--t-blue); }
 .tl-card:hover{ background:var(--forest-deep); border-left-color:var(--forest-soft); }
 .tl-card-done{
-  background:var(--t-blue); border-left-color:var(--t-blue);
-  filter:brightness(0.55) saturate(1.05);
-  box-shadow:0 2px 8px rgba(0,0,0,.4);
+  background:#AFC9F2; border-left-color:#6699E6;
+  box-shadow:0 2px 8px rgba(0,0,0,.25);
 }
-.tl-card-done.type-Solicitacao, .tl-card-done.type-Discovery{ background:var(--t-orange); border-left-color:var(--t-orange); }
-.tl-card-done .tl-card-title, .tl-card-done .tl-card-idm, .tl-card-done .tl-card-ado-link{ color:#fff; }
-.tl-card-done:hover{ filter:brightness(0.68) saturate(1.05); }
+.tl-card-done.type-Solicitacao{ background:#B7E4C7; border-left-color:#5FAE7F; }
+.tl-card-done.type-Discovery{ background:#F5CFA0; border-left-color:#E0994F; }
+.tl-card-done .tl-card-title, .tl-card-done .tl-card-idm, .tl-card-done .tl-card-ado-link{ color:#1B2438; }
+.tl-card-done .tl-state, .tl-card-done .tl-assignee, .tl-card-done .tl-dl, .tl-card-done .dl{ color:#33415C; }
+.tl-card-done:hover{ filter:brightness(0.94); }
+.tl-card-done .tl-tag{ background:rgba(27,36,56,.12); color:#1B2438; }
+.tl-card-done .bd-label{ color:#1B2438; }
+.tl-card-done .bd-pct{ color:#33415C; }
+.tl-card-done .bd-bar{ background:rgba(27,36,56,.15); }
 .tl-card-top{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .tl-card-icon{ font-size:14px; flex:none; }
 .tl-card-title{ font:600 13.5px 'Inter'; color:var(--ink); flex:1 1 auto; min-width:140px; }
