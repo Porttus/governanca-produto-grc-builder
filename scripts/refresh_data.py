@@ -243,7 +243,30 @@ def build_roadmap_tree():
 # =========================================================
 #  PARTE 2 — Timeline (Feature/Solicitação/Discovery com datas)
 # =========================================================
-def build_timeline_cards(roadmap_data, roadmap_nodes, children_of):
+def fetch_iterations():
+    print("Buscando sprints/iterations do time...")
+    result = subprocess.run(
+        ["curl", "-s", "-u", f":{PAT}",
+         f"https://dev.azure.com/{ORG}/{PROJECT_URL_ENC}/_apis/work/teamsettings/iterations?api-version=7.0"],
+        capture_output=True, text=True,
+    )
+    data = json.loads(result.stdout)
+    # mapa: caminho completo da iteração (bate exatamente com System.IterationPath) -> {name, start, end}
+    iter_map = {}
+    for it in data.get("value", []):
+        attrs = it.get("attributes", {})
+        start = attrs.get("startDate")
+        finish = attrs.get("finishDate")
+        iter_map[it["path"]] = {
+            "name": it["name"],
+            "start": start[:10] if start else None,
+            "end": finish[:10] if finish else None,
+        }
+    print(f"  {len(iter_map)} sprints encontrados.")
+    return iter_map
+
+
+def build_timeline_cards(roadmap_data, roadmap_nodes, children_of, iter_map):
     print("Buscando datas (Start/Target) para cards da Timeline...")
     # Apenas Feature/Solicitação/Discovery alcançáveis a partir das árvores
     # ativas (epics.full + discovery.full) — não do universo total do projeto.
@@ -296,12 +319,14 @@ def build_timeline_cards(roadmap_data, roadmap_nodes, children_of):
             if n["state"] in RESOLVED:
                 start_date = start_date or f.get("Microsoft.VSTS.Common.ActivatedDate") or f.get("System.CreatedDate")
                 target_date = target_date or f.get("Microsoft.VSTS.Common.ClosedDate") or f.get("System.ChangedDate")
+        iteration_path = f.get("System.IterationPath")
+        sprint = iter_map.get(iteration_path) if iteration_path else None
         cards.append({
             "id": str(id_), "type": n["type"], "title": n["title"], "state": n["state"],
             "pct": pct, "startDate": start_date[:10] if start_date else None,
             "targetDate": target_date[:10] if target_date else None,
             "assignee": assignee.get("displayName") if isinstance(assignee, dict) else None,
-            "tags": f.get("System.Tags", ""),
+            "tags": f.get("System.Tags", ""), "sprint": sprint,
         })
     print(f"  Timeline cards: {len(cards)}")
     return cards
@@ -632,7 +657,8 @@ def main():
     html = open(INDEX_PATH, encoding="utf-8").read()
 
     roadmap_data, roadmap_nodes, children_of = build_roadmap_tree()
-    timeline_cards = build_timeline_cards(roadmap_data, roadmap_nodes, children_of)
+    iter_map = fetch_iterations()
+    timeline_cards = build_timeline_cards(roadmap_data, roadmap_nodes, children_of, iter_map)
     flow_data = build_flow_metrics()
 
     html = replace_json_block(html, "roadmap-data", roadmap_data)
