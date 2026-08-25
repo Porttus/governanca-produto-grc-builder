@@ -260,7 +260,8 @@ def build_timeline_cards(roadmap_data, roadmap_nodes, children_of):
     tl_ids = sorted(tl_id_set)
 
     fields = ["System.Id", "Microsoft.VSTS.Scheduling.StartDate", "Microsoft.VSTS.Scheduling.TargetDate",
-               "System.AssignedTo", "System.Tags", "System.IterationPath"]
+               "System.AssignedTo", "System.Tags", "System.IterationPath",
+               "Microsoft.VSTS.Common.ActivatedDate", "Microsoft.VSTS.Common.ClosedDate", "System.CreatedDate"]
     items = batch_fetch(tl_ids, fields)
     sched = {it["fields"]["System.Id"]: it["fields"] for it in items}
 
@@ -285,12 +286,20 @@ def build_timeline_cards(roadmap_data, roadmap_nodes, children_of):
         total, completed = count_all(id_)
         pct = round(100 * completed / total) if total else 0
         assignee = f.get("System.AssignedTo")
+        start_date = f.get("Microsoft.VSTS.Scheduling.StartDate")
+        target_date = f.get("Microsoft.VSTS.Scheduling.TargetDate")
+        # O Azure DevOps da Porttus limpa Start/Target Date quando o item é
+        # fechado ("Feito"/"Closed") — para não perder o item do Roadmap
+        # Visual, usamos como substituto as datas reais de ativação/fechamento
+        # (nunca inventamos data para itens ainda em aberto sem agendamento).
+        if not start_date or not target_date:
+            if n["state"] in RESOLVED:
+                start_date = start_date or f.get("Microsoft.VSTS.Common.ActivatedDate") or f.get("System.CreatedDate")
+                target_date = target_date or f.get("Microsoft.VSTS.Common.ClosedDate") or f.get("System.ChangedDate")
         cards.append({
             "id": str(id_), "type": n["type"], "title": n["title"], "state": n["state"],
-            "pct": pct, "startDate": f.get("Microsoft.VSTS.Scheduling.StartDate", "")[:10]
-                if f.get("Microsoft.VSTS.Scheduling.StartDate") else None,
-            "targetDate": f.get("Microsoft.VSTS.Scheduling.TargetDate", "")[:10]
-                if f.get("Microsoft.VSTS.Scheduling.TargetDate") else None,
+            "pct": pct, "startDate": start_date[:10] if start_date else None,
+            "targetDate": target_date[:10] if target_date else None,
             "assignee": assignee.get("displayName") if isinstance(assignee, dict) else None,
             "tags": f.get("System.Tags", ""),
         })
