@@ -344,6 +344,7 @@ def build_timeline_cards(roadmap_data, roadmap_nodes, children_of, iter_map, med
             "targetDate": target_date[:10] if target_date else None,
             "assignee": assignee.get("displayName") if isinstance(assignee, dict) else None,
             "tags": tags_list, "sprint": sprint, "dateSource": date_source,
+            "resolved": n["state"] in RESOLVED,
         })
     n_real = sum(1 for c in cards if c["dateSource"] == "real")
     n_hist = sum(1 for c in cards if c["dateSource"] == "historico_real")
