@@ -665,6 +665,43 @@ def build_flow_metrics():
 # =========================================================
 #  PARTE 4 — Fila de Priorização (Backlog Priority / Stack Rank real)
 # =========================================================
+# =========================================================
+#  PARTE 4b — Mapa de Demandas por Tipo (universo total do projeto)
+# =========================================================
+def build_type_map():
+    print("Buscando Mapa de Demandas por Tipo (todos os tipos, projeto inteiro)...")
+    TYPE_ORDER = ['Epic', 'Discovery', 'Feature', 'Solicitação', 'Melhoria', 'User Story', 'Bug', 'Spike']
+    types_wiql = ",".join(f"'{t}'" for t in TYPE_ORDER)
+    q = (f"SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project "
+         f"AND [System.WorkItemType] IN ({types_wiql})")
+    ids = [wi["id"] for wi in wiql(q).get("workItems", [])]
+    fields = ["System.Id", "System.WorkItemType", "System.State"]
+    items = batch_fetch(ids, fields)
+
+    counts = {t: {"total": 0, "open": 0, "done": 0} for t in TYPE_ORDER}
+    for it in items:
+        f = it["fields"]
+        t = f["System.WorkItemType"]
+        if t not in counts:
+            continue
+        counts[t]["total"] += 1
+        if f["System.State"] in RESOLVED:
+            counts[t]["done"] += 1
+        else:
+            counts[t]["open"] += 1
+
+    grand_total = sum(c["total"] for c in counts.values())
+    type_map = []
+    for t in TYPE_ORDER:
+        c = counts[t]
+        type_map.append({
+            "type": t, "total": c["total"], "open": c["open"], "done": c["done"],
+            "pct": round(100 * c["total"] / grand_total, 1) if grand_total else 0,
+        })
+    print(f"  Total mapeado: {grand_total} itens.")
+    return {"items": type_map, "grand_total": grand_total}
+
+
 def build_priority_queue():
     print("Buscando Fila de Priorização (itens Novo/A fazer, todos os tipos)...")
     QUEUE_TYPES = "'Discovery','Feature','Solicitação','Melhoria','User Story','Bug','Spike'"
@@ -732,11 +769,13 @@ def main():
         median_spike_cycle = 4.2  # fallback histórico conhecido
     timeline_cards = build_timeline_cards(roadmap_data, roadmap_nodes, children_of, iter_map, median_spike_cycle)
     priority_queue = build_priority_queue()
+    type_map = build_type_map()
 
     html = replace_json_block(html, "roadmap-data", roadmap_data)
     html = replace_json_block(html, "timeline-cards-data", timeline_cards)
     html = replace_json_block(html, "flow-metrics-data", flow_data)
     html = replace_json_block(html, "priority-queue-data", priority_queue)
+    html = replace_json_block(html, "type-map-data", type_map)
 
     with open(INDEX_PATH, "w", encoding="utf-8") as fh:
         fh.write(html)
