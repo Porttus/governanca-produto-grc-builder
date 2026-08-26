@@ -833,6 +833,11 @@ table.tm-table td.tm-num{ font-variant-numeric:tabular-nums; text-align:right; }
 table.tm-table tr.tm-total-row td{ font-weight:700; border-top:2px solid var(--line-strong); }
 .tm-type-cell{ display:flex; align-items:center; gap:8px; font-weight:600; }
 .tm-type-cell .dot{ width:9px; height:9px; border-radius:3px; flex:none; }
+.tm-grid-2{ display:grid; grid-template-columns:repeat(2,1fr); gap:24px; align-items:start; }
+@media (max-width:900px){ .tm-grid-2{ grid-template-columns:1fr; } }
+.tm-subpanel{ min-width:0; }
+.tm-subtitle{ font:700 15px 'Inter'; color:var(--ink); margin:0 0 12px; display:flex; align-items:center; gap:8px; }
+.tm-subtotal{ font:700 11px 'Inter'; color:var(--ink-soft); background:var(--surface-2); padding:2px 9px; border-radius:100px; }
 
 .section-divider{
   padding:34px clamp(20px,3vw,56px) 20px;
@@ -1030,17 +1035,31 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
 <div class="tm-section">
   <div class="tm-header">
     <h2 class="tm-title">🗺️ Mapa de Demandas por Tipo</h2>
-    <p class="tm-sub">Universo total de itens mapeados no Azure DevOps, por tipo — antes de qualquer filtro de épico ativo ou período. Fonte: <b>Azure DevOps API (live)</b>.</p>
+    <p class="tm-sub">Universo total de itens mapeados no Azure DevOps — separado em <b>Iniciativas</b> (containers: Épico, Feature, Discovery, Solicitação) e <b>Tarefas</b> (execução: Melhoria, User Story, Bug, Spike), já que misturar as duas escalas distorce a leitura. Fonte: <b>Azure DevOps API (live)</b>.</p>
   </div>
-  <div class="tm-comp-bar" id="tm-comp-bar"></div>
-  <div class="tm-comp-legend" id="tm-comp-legend"></div>
-  <div class="tm-table-wrap">
-    <table class="tm-table" id="tm-table">
-      <thead>
-        <tr><th>Tipo</th><th>Total</th><th>%</th><th>Aberto</th><th>Concluído</th></tr>
-      </thead>
-      <tbody id="tm-table-body"></tbody>
-    </table>
+  <div class="tm-grid-2">
+    <div class="tm-subpanel">
+      <h3 class="tm-subtitle">📦 Iniciativas <span class="tm-subtotal" id="tm-init-total"></span></h3>
+      <div class="tm-comp-bar" id="tm-init-comp-bar"></div>
+      <div class="tm-comp-legend" id="tm-init-comp-legend"></div>
+      <div class="tm-table-wrap">
+        <table class="tm-table" id="tm-init-table">
+          <thead><tr><th>Tipo</th><th>Total</th><th>%</th><th>Aberto</th><th>Concluído</th></tr></thead>
+          <tbody id="tm-init-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="tm-subpanel">
+      <h3 class="tm-subtitle">🔧 Tarefas <span class="tm-subtotal" id="tm-task-total"></span></h3>
+      <div class="tm-comp-bar" id="tm-task-comp-bar"></div>
+      <div class="tm-comp-legend" id="tm-task-comp-legend"></div>
+      <div class="tm-table-wrap">
+        <table class="tm-table" id="tm-task-table">
+          <thead><tr><th>Tipo</th><th>Total</th><th>%</th><th>Aberto</th><th>Concluído</th></tr></thead>
+          <tbody id="tm-task-table-body"></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1835,46 +1854,67 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
   }
 
   // ---------- hero stats (delivery / épicos) ----------
-  // ---------- Mapa de Demandas por Tipo ----------
+  // ---------- Mapa de Demandas por Tipo (Iniciativas x Tarefas) ----------
   var TM_COLORS = {
     'Epic':'#F2994A', 'Discovery':'#F7B679',
     'Feature':'#3B82F6', 'User Story':'#93BBFA',
     'Solicitação':'#22C55E', 'Melhoria':'#7FE0A7',
     'Bug':'#F0473F', 'Spike':'#FBBF24',
   };
+  var TM_INICIATIVAS_TYPES = ['Epic','Feature','Discovery','Solicitação'];
+  var TM_TAREFAS_TYPES = ['Melhoria','User Story','Bug','Spike'];
+
+  function renderTypeMapGroup(items, prefix){
+    var total = items.reduce(function(s,i){ return s+i.total; }, 0);
+    var withPct = items.map(function(i){
+      return Object.assign({}, i, { groupPct: total ? Math.round((i.total/total)*1000)/10 : 0 });
+    });
+
+    var barEl = document.getElementById(prefix+'-comp-bar');
+    var legendEl = document.getElementById(prefix+'-comp-legend');
+    var bodyEl = document.getElementById(prefix+'-table-body');
+    var totalEl = document.getElementById(prefix+'-total');
+    if(!barEl || !bodyEl) return;
+
+    if(totalEl) totalEl.textContent = total.toLocaleString('pt-BR')+' itens';
+
+    barEl.innerHTML = withPct.filter(function(i){ return i.total>0; }).map(function(i){
+      var color = TM_COLORS[i.type] || 'var(--ink-soft)';
+      return '<div class="seg" style="width:'+i.groupPct+'%;background:'+color+'" title="'+i.type+': '+i.total+' itens ('+i.groupPct+'%)"></div>';
+    }).join('');
+
+    legendEl.innerHTML = withPct.map(function(i){
+      var color = TM_COLORS[i.type] || 'var(--ink-soft)';
+      return '<span class="item"><span class="dot" style="background:'+color+'"></span>'+i.type+' <b>'+i.groupPct+'%</b></span>';
+    }).join('');
+
+    bodyEl.innerHTML = withPct.map(function(i){
+      var color = TM_COLORS[i.type] || 'var(--ink-soft)';
+      return '<tr>' +
+        '<td><span class="tm-type-cell"><span class="dot" style="background:'+color+'"></span>'+i.type+'</span></td>' +
+        '<td class="tm-num">'+i.total.toLocaleString('pt-BR')+'</td>' +
+        '<td class="tm-num">'+i.groupPct+'%</td>' +
+        '<td class="tm-num">'+i.open.toLocaleString('pt-BR')+'</td>' +
+        '<td class="tm-num">'+i.done.toLocaleString('pt-BR')+'</td>' +
+      '</tr>';
+    }).join('') + '<tr class="tm-total-row"><td>Total</td><td class="tm-num">'+total.toLocaleString('pt-BR')+'</td><td class="tm-num">100%</td><td></td><td></td></tr>';
+  }
+
   function renderTypeMap(){
     var dataEl = document.getElementById('type-map-data');
     if(!dataEl) return;
     var data = JSON.parse(dataEl.textContent);
     var items = data.items || [];
     if(!items.length) return;
-    var grandTotal = data.grand_total || items.reduce(function(s,i){ return s+i.total; }, 0);
 
-    var barEl = document.getElementById('tm-comp-bar');
-    var legendEl = document.getElementById('tm-comp-legend');
-    var bodyEl = document.getElementById('tm-table-body');
-    if(!barEl || !bodyEl) return;
+    var byType = {};
+    items.forEach(function(i){ byType[i.type] = i; });
 
-    barEl.innerHTML = items.filter(function(i){ return i.total>0; }).map(function(i){
-      var color = TM_COLORS[i.type] || 'var(--ink-soft)';
-      return '<div class="seg" style="width:'+i.pct+'%;background:'+color+'" title="'+i.type+': '+i.total+' itens ('+i.pct+'%)"></div>';
-    }).join('');
+    var iniciativas = TM_INICIATIVAS_TYPES.map(function(t){ return byType[t]; }).filter(Boolean);
+    var tarefas = TM_TAREFAS_TYPES.map(function(t){ return byType[t]; }).filter(Boolean);
 
-    legendEl.innerHTML = items.map(function(i){
-      var color = TM_COLORS[i.type] || 'var(--ink-soft)';
-      return '<span class="item"><span class="dot" style="background:'+color+'"></span>'+i.type+' <b>'+i.pct+'%</b></span>';
-    }).join('');
-
-    bodyEl.innerHTML = items.map(function(i){
-      var color = TM_COLORS[i.type] || 'var(--ink-soft)';
-      return '<tr>' +
-        '<td><span class="tm-type-cell"><span class="dot" style="background:'+color+'"></span>'+i.type+'</span></td>' +
-        '<td class="tm-num">'+i.total.toLocaleString('pt-BR')+'</td>' +
-        '<td class="tm-num">'+i.pct+'%</td>' +
-        '<td class="tm-num">'+i.open.toLocaleString('pt-BR')+'</td>' +
-        '<td class="tm-num">'+i.done.toLocaleString('pt-BR')+'</td>' +
-      '</tr>';
-    }).join('') + '<tr class="tm-total-row"><td>Total</td><td class="tm-num">'+grandTotal.toLocaleString('pt-BR')+'</td><td class="tm-num">100%</td><td></td><td></td></tr>';
+    renderTypeMapGroup(iniciativas, 'tm-init');
+    renderTypeMapGroup(tarefas, 'tm-task');
   }
   renderTypeMap();
 
