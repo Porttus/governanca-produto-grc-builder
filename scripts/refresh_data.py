@@ -206,7 +206,11 @@ def build_roadmap_tree():
 
     epic_roots = sorted(i for i, n in nodes.items()
                          if n["type"] == "Epic" and n["true_parent"] is None and n["state"] not in RESOLVED)
-    epics_full = [build_node(r, 1) for r in epic_roots]
+    # Solicitações sem Épico pai são trabalho de ENTREGA (Delivery), não de
+    # exploração — entram como raízes adicionais em Épicos, não em Discovery.
+    orphan_solic = sorted(i for i, n in nodes.items() if n["type"] == "Solicitação" and n["true_parent"] is None)
+    delivery_roots = epic_roots + orphan_solic
+    epics_full = [build_node(r, 1) for r in delivery_roots]
     epics_display = [prune_display(r) for r in epics_full]
     e_total = sum(r["total"] for r in epics_full)
     e_completed = sum(r["completed"] for r in epics_full)
@@ -214,16 +218,16 @@ def build_roadmap_tree():
         "display": epics_display, "full": epics_full,
         "summary": {"total_items": e_total, "completed_items": e_completed,
                     "pct": round(100 * e_completed / e_total) if e_total else 0,
-                    "n_roots": len(epic_roots),
+                    "n_roots": len(delivery_roots),
                     "visible_nodes": sum(count_nodes(r) for r in epics_display),
                     "full_nodes": sum(count_nodes(r) for r in epics_full),
                     "n_roots_active": sum(1 for r in epic_roots if nodes[r]["state"] == "Active")},
     }
 
+    # Discovery: apenas itens do tipo Discovery em si — Solicitações órfãs
+    # saíram daqui (ver acima) por serem trabalho de entrega, não exploração.
     disc_roots = sorted(i for i, n in nodes.items() if n["type"] == "Discovery" and n["true_parent"] is None)
-    orphan_solic = sorted(i for i, n in nodes.items() if n["type"] == "Solicitação" and n["true_parent"] is None)
-    all_roots = disc_roots + orphan_solic
-    disc_full = [build_node(r, 1) for r in all_roots]
+    disc_full = [build_node(r, 1) for r in disc_roots]
     disc_display = [prune_display(r) for r in disc_full]
     d_total = sum(r["total"] for r in disc_full)
     d_completed = sum(r["completed"] for r in disc_full)
@@ -231,7 +235,7 @@ def build_roadmap_tree():
         "display": disc_display, "full": disc_full,
         "summary": {"total_items": d_total, "completed_items": d_completed,
                     "pct": round(100 * d_completed / d_total) if d_total else 0,
-                    "n_roots": len(all_roots),
+                    "n_roots": len(disc_roots),
                     "visible_nodes": sum(count_nodes(r) for r in disc_display),
                     "full_nodes": sum(count_nodes(r) for r in disc_full)},
     }
