@@ -2455,7 +2455,7 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
     // continuous month range: Jan/2026 through the latest month with
     // data (or today, whichever is later), so past is always on the
     // left and future stays on the right even for empty months.
-    var RANGE_START = new Date(2026, 4, 1); // Maio/2026 — meses anteriores sem registros relevantes
+    var RANGE_START = new Date(2026, 0, 1); // Janeiro/2026 — início do histórico rastreado
     var today = new Date(); today.setDate(1); today.setHours(0,0,0,0);
     var maxMonth = new Date(RANGE_START);
     Object.keys(byMonth).forEach(function(mk){
