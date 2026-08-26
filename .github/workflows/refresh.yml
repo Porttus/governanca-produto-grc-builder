@@ -2,8 +2,9 @@ name: Atualizar dados do dashboard
 
 on:
   schedule:
-    # Todos os dias às 08:00 (horário de Brasília, UTC-3) = 11:00 UTC
+    # Todos os dias às 08:00 e 14:00 (horário de Brasília, UTC-3) = 11:00 e 17:00 UTC
     - cron: '0 11 * * *'
+    - cron: '0 17 * * *'
   workflow_dispatch: {}  # permite rodar manualmente pela aba "Actions" no GitHub
 
 permissions:
