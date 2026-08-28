@@ -98,16 +98,27 @@ body{
 .hero-meta b{ color:#F0C878; font-weight:600; }
 
 .hero-stats{
-  display:grid; grid-template-columns:repeat(3,minmax(0,1fr));
+  display:grid; grid-template-columns:repeat(4,minmax(0,1fr));
   gap:14px; margin-top:22px; position:relative; z-index:1;
-  max-width:720px;
+  max-width:900px;
 }
+.hc-card{
+  background:
+    radial-gradient(120px 80px at 90% 0%, rgba(59,130,246,.10), transparent 70%),
+    var(--cream-card);
+  border:1px solid var(--line-strong); border-radius:12px; padding:16px 18px;
+}
+.hc-lbl{
+  font-size:11px; letter-spacing:.05em; text-transform:uppercase;
+  color:rgba(232,234,244,.55); margin-bottom:8px;
+}
+.hc-num{ font:700 28px/1 'Inter', sans-serif; color:#F3F5FA; }
+.hc-sub{ font-size:12px; color:rgba(232,234,244,.5); margin-top:7px; }
 .stat-card{
   background:var(--cream-card);
   border:1.5px solid var(--line-strong);
   border-radius:12px; padding:16px 18px;
 }
-.hero-stats > .stat-card{ border-left:4px solid var(--forest); }
 .stat-card.colored{ border-left:4px solid var(--sc,var(--forest)); }
 .stat-card .num{
   font:700 26px/1 'Inter', sans-serif; color:#F3F5FA;
@@ -1911,31 +1922,27 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
 
   function renderHeroStats(){
     var s = DATA.epics.summary;
-    var html = '';
+    var fmEl = document.getElementById('flow-metrics-data');
+    var fm = fmEl ? JSON.parse(fmEl.textContent) : {};
+    var wipByType = fm.wip_now_by_type || {};
+    var wipTotal = fm.wip_now_total || 0;
+    var blockedCount = fm.blocked_count || 0;
 
-    // Evolução geral REAL: % concluído de TUDO que está mapeado no Azure
-    // DevOps (todos os 8 tipos, projeto inteiro) — não só os épicos ativos.
-    var tmEl = document.getElementById('type-map-data');
-    if(tmEl){
-      var tm = JSON.parse(tmEl.textContent);
-      var grandTotal = tm.items.reduce(function(s,i){ return s+i.total; }, 0);
-      var grandDone = tm.items.reduce(function(s,i){ return s+i.done; }, 0);
-      var globalPct = grandTotal ? Math.round((grandDone/grandTotal)*10)/10 : 0;
-      html += statCard(globalPct + '%', 'Evolução geral', globalPct,
-        'Percentual concluído de TODO o histórico mapeado no Azure DevOps (todos os tipos, projeto inteiro): '+grandDone.toLocaleString('pt-BR')+' de '+grandTotal.toLocaleString('pt-BR')+' itens.');
-    }
-    html += statCard(s.pct + '%', 'Evolução dos épicos ativos', s.pct, 'Percentual de itens concluídos sobre o total de itens vinculados aos '+s.n_roots_active+' épicos ativos hoje (escopo mais tático, não é o histórico completo)');
-    html += statCard(s.n_roots_active, 'Épicos ativos', undefined, 'Quantidade de épicos em estado Active no Azure DevOps agora');
+    // Top 2 tipos de WIP por volume, pro subtítulo (ex: "26 bugs · 12 melhorias")
+    var wipTypeLabel = { 'Bug':'bugs', 'Melhoria':'melhorias', 'User Story':'user stories', 'Spike':'spikes' };
+    var wipSorted = Object.keys(wipByType).map(function(t){ return { t:t, n:wipByType[t] }; })
+      .sort(function(a,b){ return b.n - a.n; });
+    var wipSub = wipSorted.slice(0,2).map(function(w){ return w.n+' '+(wipTypeLabel[w.t]||w.t.toLowerCase()); }).join(' · ');
+
+    var html = '';
+    html += heroCard(s.pct + '%', 'Completude', s.completed_items.toLocaleString('pt-BR')+' de '+s.total_items.toLocaleString('pt-BR')+' itens');
+    html += heroCard(s.n_roots_active, 'Épicos ativos', 'visão consolidada');
+    html += heroCard(wipTotal, 'WIP atual', wipSub || '—');
+    html += heroCard(blockedCount, 'Bloqueados', 'itens ativos');
     document.getElementById('hero-stats').innerHTML = html;
   }
-  function statCard(num, lbl, barPct, tip){
-    var bar = (barPct!==undefined) ? '<div class="overall-flow"><i style="width:'+barPct+'%"></i></div>' : '';
-    var tipAttr = tip ? ' title="'+tip+'"' : '';
-    return '<div class="stat-card main"'+tipAttr+'><div class="num">'+num+'</div><div class="lbl">'+lbl+'</div>'+bar+'</div>';
-  }
-  function statCardColored(num, lbl, colorVar, tip){
-    var tipAttr = tip ? ' title="'+tip+'"' : '';
-    return '<div class="stat-card main colored" style="--sc:'+colorVar+'"'+tipAttr+'><div class="num">'+num+'</div><div class="lbl">'+lbl+'</div></div>';
+  function heroCard(num, lbl, sub){
+    return '<div class="hc-card"><div class="hc-lbl">'+lbl+'</div><div class="hc-num">'+num+'</div><div class="hc-sub">'+sub+'</div></div>';
   }
   renderHeroStats();
 
