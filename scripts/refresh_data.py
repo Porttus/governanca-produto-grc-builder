@@ -708,6 +708,40 @@ def build_type_map():
     return {"items": type_map, "grand_total": grand_total}
 
 
+# =========================================================
+#  PARTE 4c — Composição por frente de trabalho (New -> Em teste)
+#  Regra: itens de Melhoria/User Story/Bug/Spike CRIADOS entre
+#  janeiro/2026 e hoje, cujo estado NÃO seja Resolved/Closed/Removed
+#  (ou seja: do início do fluxo até a última etapa antes de finalizar).
+# =========================================================
+def build_activity_composition():
+    print("Buscando Composição por Frente de Trabalho (New->Em teste, jan/2026-hoje)...")
+    COMP_TYPES = ['Melhoria', 'User Story', 'Bug', 'Spike']
+    types_wiql = ",".join(f"'{t}'" for t in COMP_TYPES)
+    q = (f"SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project "
+         f"AND [System.WorkItemType] IN ({types_wiql}) "
+         f"AND [System.CreatedDate] >= '2026-01-01'")
+    ids = [wi["id"] for wi in wiql(q).get("workItems", [])]
+    fields = ["System.Id", "System.WorkItemType", "System.State"]
+    items = batch_fetch(ids, fields)
+
+    FINISHED_STATES = {"Resolved", "Closed", "Removed"}
+    counts = {t: 0 for t in COMP_TYPES}
+    for it in items:
+        f = it["fields"]
+        t = f["System.WorkItemType"]
+        s = f["System.State"]
+        if t in counts and s not in FINISHED_STATES:
+            counts[t] += 1
+
+    total = sum(counts.values())
+    result = {}
+    for t in COMP_TYPES:
+        result[t] = {"count": counts[t], "pct": round(100 * counts[t] / total) if total else 0}
+    print(f"  Total em andamento (New->Em teste, jan/2026-hoje): {total} — {result}")
+    return {"items": result, "total": total, "period_label": "jan/2026 - hoje"}
+
+
 def build_priority_queue():
     print("Buscando Fila de Priorização (itens Novo/A fazer, todos os tipos)...")
     QUEUE_TYPES = "'Discovery','Feature','Solicitação','Melhoria','User Story','Bug','Spike'"
@@ -776,12 +810,14 @@ def main():
     timeline_cards = build_timeline_cards(roadmap_data, roadmap_nodes, children_of, iter_map, median_spike_cycle)
     priority_queue = build_priority_queue()
     type_map = build_type_map()
+    activity_composition = build_activity_composition()
 
     html = replace_json_block(html, "roadmap-data", roadmap_data)
     html = replace_json_block(html, "timeline-cards-data", timeline_cards)
     html = replace_json_block(html, "flow-metrics-data", flow_data)
     html = replace_json_block(html, "priority-queue-data", priority_queue)
     html = replace_json_block(html, "type-map-data", type_map)
+    html = replace_json_block(html, "activity-composition-data", activity_composition)
 
     with open(INDEX_PATH, "w", encoding="utf-8") as fh:
         fh.write(html)
