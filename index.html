@@ -98,9 +98,9 @@ body{
 .hero-meta b{ color:#F0C878; font-weight:600; }
 
 .hero-stats{
-  display:grid; grid-template-columns:repeat(2,minmax(0,1fr));
+  display:grid; grid-template-columns:repeat(3,minmax(0,1fr));
   gap:14px; margin-top:22px; position:relative; z-index:1;
-  max-width:520px;
+  max-width:720px;
 }
 .stat-card{
   background:var(--cream-card);
@@ -139,7 +139,13 @@ body{
   display:grid; grid-template-columns:repeat(4,minmax(0,1fr));
   gap:14px;
 }
-.mix-card{ border-color:var(--line-strong); }
+.mix-card{ border-color:var(--line-strong); position:relative; }
+.mix-badge-min{
+  position:absolute; top:10px; right:10px; font:700 9.5px 'Inter'; letter-spacing:.03em;
+  text-transform:uppercase; color:var(--ink-soft); background:var(--surface-2);
+  border:1px solid var(--line-strong); padding:2px 8px; border-radius:100px;
+}
+.mix-sub-detail{ font-size:11px; color:var(--ink-soft); margin-top:6px; }
 .mix-card.evolucao{ border-color:var(--t-green); }
 .mix-card.evolucao .num{ color:var(--t-green); }
 .mix-card.inovacao{ border-color:var(--t-blue); }
@@ -1021,6 +1027,7 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
   </div>
   <div class="hero-stats" id="hero-stats"></div>
   <div class="activity-mix" id="activity-mix"></div>
+  <div class="activity-mix" id="activity-mix-total"></div>
 </header>
 
 <nav class="page-tabs">
@@ -1921,7 +1928,19 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
   function renderHeroStats(){
     var s = DATA.epics.summary;
     var html = '';
-    html += statCard(s.pct + '%', 'Evolução geral', s.pct, 'Percentual de itens concluídos sobre o total de itens vinculados aos épicos ativos hoje');
+
+    // Evolução geral REAL: % concluído de TUDO que está mapeado no Azure
+    // DevOps (todos os 8 tipos, projeto inteiro) — não só os épicos ativos.
+    var tmEl = document.getElementById('type-map-data');
+    if(tmEl){
+      var tm = JSON.parse(tmEl.textContent);
+      var grandTotal = tm.items.reduce(function(s,i){ return s+i.total; }, 0);
+      var grandDone = tm.items.reduce(function(s,i){ return s+i.done; }, 0);
+      var globalPct = grandTotal ? Math.round((grandDone/grandTotal)*10)/10 : 0;
+      html += statCard(globalPct + '%', 'Evolução geral', globalPct,
+        'Percentual concluído de TODO o histórico mapeado no Azure DevOps (todos os tipos, projeto inteiro): '+grandDone.toLocaleString('pt-BR')+' de '+grandTotal.toLocaleString('pt-BR')+' itens.');
+    }
+    html += statCard(s.pct + '%', 'Evolução dos épicos ativos', s.pct, 'Percentual de itens concluídos sobre o total de itens vinculados aos '+s.n_roots_active+' épicos ativos hoje (escopo mais tático, não é o histórico completo)');
     html += statCard(s.n_roots_active, 'Épicos ativos', undefined, 'Quantidade de épicos em estado Active no Azure DevOps agora');
     document.getElementById('hero-stats').innerHTML = html;
   }
@@ -1987,6 +2006,59 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
       '</div>';
   })();
 
+
+  // ---------- activity mix TOTAL (histórico completo, New até Resolved) ----------
+  // Diferente do card de WIP acima: aqui a % é sobre TODO o histórico já
+  // criado de cada tipo (não só o que está em andamento agora). Ordenado da
+  // maior % para a menor; o tipo com menos itens em valor absoluto ganha
+  // um selo "menor volume".
+  (function renderActivityMixTotal(){
+    var el = document.getElementById('activity-mix-total');
+    var tmEl = document.getElementById('type-map-data');
+    if(!el || !tmEl) return;
+    var tm = JSON.parse(tmEl.textContent);
+    var byType = {};
+    tm.items.forEach(function(i){ byType[i.type] = i; });
+
+    var MAP = [
+      { key:'evolucao', label:'Evolução (Melhoria)', type:'Melhoria' },
+      { key:'inovacao', label:'Inovação (User Story)', type:'User Story' },
+      { key:'discovery', label:'Discovery (Spike)', type:'Spike' },
+      { key:'bug', label:'Correção de Bug', type:'Bug' },
+    ];
+    var rows = MAP.map(function(m){
+      var d = byType[m.type] || { total:0, open:0, done:0 };
+      return { key:m.key, label:m.label, total:d.total, open:d.open, done:d.done };
+    });
+    var grandTotal = rows.reduce(function(s,r){ return s+r.total; }, 0);
+    rows.forEach(function(r){ r.pct = grandTotal ? Math.round((r.total/grandTotal)*1000)/10 : 0; });
+
+    // maior % primeiro
+    rows.sort(function(a,b){ return b.pct - a.pct; });
+    // identifica o de menor volume absoluto (não necessariamente o de menor %,
+    // mas na prática costuma coincidir)
+    var minRow = rows.reduce(function(min,r){ return r.total < min.total ? r : min; }, rows[0]);
+
+    if(!grandTotal){
+      el.innerHTML = '<div class="mix-title">Composição do trabalho — histórico completo</div><div class="mix-cards"><div class="stat-card mix-card"><div class="num">—</div><div class="lbl">Nenhum item encontrado</div></div></div>';
+      return;
+    }
+
+    function mixCard(r){
+      var badge = (r.key === minRow.key) ? '<span class="mix-badge-min">menor volume</span>' : '';
+      return '<div class="stat-card mix-card '+r.key+'">' +
+        badge +
+        '<div class="num">'+r.pct+'%<small>· '+r.total.toLocaleString('pt-BR')+' itens (New → Resolved)</small></div>' +
+        '<div class="lbl lbl-row"><span class="dot '+r.key+'"></span>'+r.label+'</div>' +
+        '<div class="mix-fill '+r.key+'"><i style="width:'+r.pct+'%"></i></div>' +
+        '<div class="mix-sub-detail">'+r.open.toLocaleString('pt-BR')+' em aberto · '+r.done.toLocaleString('pt-BR')+' concluídos</div>' +
+        '</div>';
+    }
+
+    el.innerHTML =
+      '<div class="mix-title">Composição do trabalho <span class="mix-note">— histórico completo (todos os itens já criados, de New até Resolved): '+grandTotal.toLocaleString('pt-BR')+' itens no total. Ordenado da maior para a menor participação.</span></div>' +
+      '<div class="mix-cards">' + rows.map(mixCard).join('') + '</div>';
+  })();
 
   // ---------- Épicos (delivery) section ----------
   (function renderDeliverySummary(){
