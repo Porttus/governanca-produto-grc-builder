@@ -126,53 +126,36 @@ body{
   background:linear-gradient(90deg, var(--moss) 0%, var(--amber) 100%);
 }
 
-/* ---- activity mix (Evolução x Inovação x Discovery) ---- */
-.activity-mix{
-  position:relative; z-index:1; margin-top:26px;
+/* ---- composição do trabalho: visão executiva compacta ---- */
+.mix-compact{
+  position:relative; z-index:1; margin-top:26px; max-width:820px;
+  background:var(--cream-card); border:1px solid var(--line-strong); border-radius:12px;
+  padding:18px 20px;
 }
-.mix-title{
-  font:600 11px/1 'Inter'; letter-spacing:.05em; text-transform:uppercase;
-  color:rgba(232,234,244,.62); margin-bottom:12px;
+.mix-compact-title{ font:700 13px 'Inter'; color:var(--ink); margin-bottom:14px; }
+.mix-compact-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:28px; }
+@media (max-width:700px){ .mix-compact-grid{ grid-template-columns:1fr; } }
+.mix-col-title{
+  font:600 10.5px/1 'Inter'; letter-spacing:.05em; text-transform:uppercase;
+  color:var(--ink-soft); margin-bottom:10px;
 }
-.mix-note{ text-transform:none; letter-spacing:0; font-weight:400; opacity:.8; }
-.mix-cards{
-  display:grid; grid-template-columns:repeat(4,minmax(0,1fr));
-  gap:14px;
-}
-.mix-card{ border-color:var(--line-strong); position:relative; }
-.mix-badge-min{
-  position:absolute; top:10px; right:10px; font:700 9.5px 'Inter'; letter-spacing:.03em;
-  text-transform:uppercase; color:var(--ink-soft); background:var(--surface-2);
-  border:1px solid var(--line-strong); padding:2px 8px; border-radius:100px;
-}
-.mix-sub-detail{ font-size:11px; color:var(--ink-soft); margin-top:6px; }
-.mix-card.evolucao{ border-color:var(--t-green); }
-.mix-card.evolucao .num{ color:var(--t-green); }
-.mix-card.inovacao{ border-color:var(--t-blue); }
-.mix-card.inovacao .num{ color:var(--t-blue); }
-.mix-card.discovery{ border-color:var(--amber); }
-.mix-card.discovery .num{ color:var(--amber); }
-.mix-card.bug{ border-color:var(--danger); }
-.mix-card.bug .num{ color:var(--danger); }
-.mix-card .num{ display:flex; align-items:baseline; gap:8px; }
-.mix-card .num small{
-  font:600 12.5px 'Inter'; color:rgba(232,234,244,.55); letter-spacing:0;
-}
-.mix-card .mix-fill{
-  margin-top:10px; height:8px; border-radius:5px; background:rgba(255,255,255,.14);
-  overflow:hidden;
-}
-.mix-card .mix-fill > i{ display:block; height:100%; border-radius:5px; }
-.mix-card .mix-fill.evolucao > i{ background:var(--t-green); }
-.mix-card .mix-fill.inovacao > i{ background:var(--t-blue); }
-.mix-card .mix-fill.discovery > i{ background:var(--amber); }
-.mix-card .mix-fill.bug > i{ background:var(--danger); }
-.mix-card .dot{ width:8px;height:8px;border-radius:3px; display:inline-block; margin-right:7px; }
-.mix-card .dot.evolucao{ background:var(--t-green); }
-.mix-card .dot.inovacao{ background:var(--t-blue); }
-.mix-card .dot.discovery{ background:var(--amber); }
-.mix-card .dot.bug{ background:var(--danger); }
-.mix-card .lbl-row{ display:flex; align-items:center; }
+.mix-col-title b{ color:var(--ink); font-size:12px; margin-left:4px; }
+.mix-empty{ font-size:12px; color:var(--ink-soft); }
+.mix-row{ display:flex; align-items:center; gap:8px; padding:5px 0; }
+.mix-row-label{ flex:0 0 84px; font-size:12px; color:var(--ink); display:flex; align-items:center; gap:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.mix-row-label .dot{ width:7px; height:7px; border-radius:2px; flex:none; }
+.mix-row-label .dot.evolucao{ background:var(--t-green); }
+.mix-row-label .dot.inovacao{ background:var(--t-blue); }
+.mix-row-label .dot.discovery{ background:var(--amber); }
+.mix-row-label .dot.bug{ background:var(--danger); }
+.mix-row-bar{ flex:1 1 auto; height:6px; border-radius:4px; background:rgba(255,255,255,.1); overflow:hidden; min-width:40px; }
+.mix-row-bar i{ display:block; height:100%; border-radius:4px; }
+.mix-row-bar i.evolucao{ background:var(--t-green); }
+.mix-row-bar i.inovacao{ background:var(--t-blue); }
+.mix-row-bar i.discovery{ background:var(--amber); }
+.mix-row-bar i.bug{ background:var(--danger); }
+.mix-row-pct{ flex:0 0 34px; font:700 12px 'Inter'; color:var(--ink); text-align:right; }
+.mix-row-n{ flex:0 0 42px; font-size:10.5px; color:var(--ink-soft); text-align:right; }
 
 /* ================= TOOLBAR ================= */
 .toolbar{
@@ -800,7 +783,6 @@ table.fm-table .fm-type-badge{ font-size:11px; font-weight:700; padding:3px 9px;
   .hero-top{ flex-wrap:wrap; }
   .hero-right{ align-items:flex-start; }
   .hero-stats{ grid-template-columns:repeat(2,1fr); }
-  .mix-cards{ grid-template-columns:repeat(2,1fr); }
   .toolbar{ padding:12px 20px; }
   main{ padding:20px 16px 60px; }
   .flow-wrap{ width:120px; }
@@ -1026,8 +1008,7 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
     </div>
   </div>
   <div class="hero-stats" id="hero-stats"></div>
-  <div class="activity-mix" id="activity-mix"></div>
-  <div class="activity-mix" id="activity-mix-total"></div>
+  <div class="mix-compact" id="mix-compact"></div>
 </header>
 
 <nav class="page-tabs">
@@ -1957,107 +1938,61 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
 
   // ---------- activity mix (Evolução x Inovação x Discovery) ----------
   // Convenção de mercado: Feature, Solicitação e Discovery são containers/
-  // agrupadores, não entram na classificação — só os itens de trabalho
-  // de fato (folhas).
-  // % de cada card = participação no WIP TOTAL agora (Melhoria + User Story +
-  // Bug + Spike em andamento neste momento) — não no histórico total mapeado.
-  // Fonte: FLOW_DATA.wip_now_by_type, calculado no projeto INTEIRO via WIQL
-  // (não restrito à árvore dos épicos ativos — evita esconder itens órfãos
-  // ou vinculados a épicos já fechados).
-  // Evolução  = Melhoria (aprimora algo que já existe)
-  // Inovação  = User Story (capacidade nova sendo construída)
-  // Bug       = Bug (qualidade/correção)
-  // Discovery = Spike (exploração)
-  (function renderActivityMix(){
-    var el = document.getElementById('activity-mix');
+  // ---------- Composição do trabalho: WIP agora x histórico total ----------
+  // Visão executiva compacta: lista de barras horizontais finas, duas
+  // colunas lado a lado — sem cards grandes, sem texto secundário.
+  // Evolução=Melhoria · Inovação=User Story · Discovery=Spike · Bug=Bug
+  // (Feature/Solicitação/Discovery-container ficam fora: são agrupadores).
+  (function renderMixCompact(){
+    var el = document.getElementById('mix-compact');
+    if(!el) return;
     var fmEl = document.getElementById('flow-metrics-data');
-    var fm = fmEl ? JSON.parse(fmEl.textContent) : {};
-    var wipByType = fm.wip_now_by_type || {};
-
-    function bucket(type){ return { inProgress: wipByType[type] || 0 }; }
-
-    var evolucao = bucket('Melhoria');
-    var inovacao = bucket('User Story');
-    var bug = bucket('Bug');
-    var discovery = bucket('Spike');
-
-    var wipGrandTotal = evolucao.inProgress + inovacao.inProgress + bug.inProgress + discovery.inProgress;
-    function pctOf(b){ return wipGrandTotal ? Math.round(100 * b.inProgress / wipGrandTotal) : 0; }
-
-    if(!wipGrandTotal){
-      el.innerHTML = '<div class="mix-title">Evolução por tipo de trabalho</div><div class="mix-cards"><div class="stat-card mix-card"><div class="num">—</div><div class="lbl">Nenhum item em andamento agora</div></div></div>';
-      return;
-    }
-    function mixCard(key, label, b){
-      var pct = pctOf(b);
-      return '<div class="stat-card mix-card '+key+'">' +
-        '<div class="num">'+b.inProgress+'<small>· '+pct+'% do WIP</small></div>' +
-        '<div class="lbl lbl-row"><span class="dot '+key+'"></span>'+label+'</div>' +
-        '<div class="mix-fill '+key+'"><i style="width:'+pct+'%"></i></div>' +
-        '</div>';
-    }
-    el.innerHTML =
-      '<div class="mix-title">Evolução por tipo de trabalho <span class="mix-note">— WIP real agora (projeto inteiro): '+wipGrandTotal+' itens em andamento no total (Feature, Solicitação e Discovery são containers e não entram na contagem)</span></div>' +
-      '<div class="mix-cards">' +
-        mixCard('evolucao', 'Evolução (Melhoria)', evolucao) +
-        mixCard('inovacao', 'Inovação (User Story)', inovacao) +
-        mixCard('discovery', 'Discovery (Spike)', discovery) +
-        mixCard('bug', 'Correção de Bug', bug) +
-      '</div>';
-  })();
-
-
-  // ---------- activity mix TOTAL (histórico completo, New até Resolved) ----------
-  // Diferente do card de WIP acima: aqui a % é sobre TODO o histórico já
-  // criado de cada tipo (não só o que está em andamento agora). Ordenado da
-  // maior % para a menor; o tipo com menos itens em valor absoluto ganha
-  // um selo "menor volume".
-  (function renderActivityMixTotal(){
-    var el = document.getElementById('activity-mix-total');
     var tmEl = document.getElementById('type-map-data');
-    if(!el || !tmEl) return;
-    var tm = JSON.parse(tmEl.textContent);
+    var fm = fmEl ? JSON.parse(fmEl.textContent) : {};
+    var tm = tmEl ? JSON.parse(tmEl.textContent) : { items: [] };
     var byType = {};
     tm.items.forEach(function(i){ byType[i.type] = i; });
+    var wipByType = fm.wip_now_by_type || {};
 
     var MAP = [
-      { key:'evolucao', label:'Evolução (Melhoria)', type:'Melhoria' },
-      { key:'inovacao', label:'Inovação (User Story)', type:'User Story' },
-      { key:'discovery', label:'Discovery (Spike)', type:'Spike' },
-      { key:'bug', label:'Correção de Bug', type:'Bug' },
+      { key:'evolucao', label:'Melhoria', type:'Melhoria' },
+      { key:'inovacao', label:'User Story', type:'User Story' },
+      { key:'bug', label:'Bug', type:'Bug' },
+      { key:'discovery', label:'Spike', type:'Spike' },
     ];
-    var rows = MAP.map(function(m){
-      var d = byType[m.type] || { total:0, open:0, done:0 };
-      return { key:m.key, label:m.label, total:d.total, open:d.open, done:d.done };
-    });
-    var grandTotal = rows.reduce(function(s,r){ return s+r.total; }, 0);
-    rows.forEach(function(r){ r.pct = grandTotal ? Math.round((r.total/grandTotal)*1000)/10 : 0; });
 
-    // maior % primeiro
-    rows.sort(function(a,b){ return b.pct - a.pct; });
-    // identifica o de menor volume absoluto (não necessariamente o de menor %,
-    // mas na prática costuma coincidir)
-    var minRow = rows.reduce(function(min,r){ return r.total < min.total ? r : min; }, rows[0]);
-
-    if(!grandTotal){
-      el.innerHTML = '<div class="mix-title">Composição do trabalho — histórico completo</div><div class="mix-cards"><div class="stat-card mix-card"><div class="num">—</div><div class="lbl">Nenhum item encontrado</div></div></div>';
-      return;
+    function buildRows(getValue){
+      var rows = MAP.map(function(m){ return { key:m.key, label:m.label, value:getValue(m.type) }; });
+      var total = rows.reduce(function(s,r){ return s+r.value; }, 0);
+      rows.forEach(function(r){ r.pct = total ? Math.round((r.value/total)*100) : 0; });
+      rows.sort(function(a,b){ return b.value - a.value; });
+      return { rows:rows, total:total };
     }
 
-    function mixCard(r){
-      var badge = (r.key === minRow.key) ? '<span class="mix-badge-min">menor volume</span>' : '';
-      return '<div class="stat-card mix-card '+r.key+'">' +
-        badge +
-        '<div class="num">'+r.pct+'%<small>· '+r.total.toLocaleString('pt-BR')+' itens (New → Resolved)</small></div>' +
-        '<div class="lbl lbl-row"><span class="dot '+r.key+'"></span>'+r.label+'</div>' +
-        '<div class="mix-fill '+r.key+'"><i style="width:'+r.pct+'%"></i></div>' +
-        '<div class="mix-sub-detail">'+r.open.toLocaleString('pt-BR')+' em aberto · '+r.done.toLocaleString('pt-BR')+' concluídos</div>' +
+    function renderList(title, data){
+      if(!data.total){
+        return '<div class="mix-col"><div class="mix-col-title">'+title+'</div><div class="mix-empty">Nenhum item</div></div>';
+      }
+      var rowsHtml = data.rows.map(function(r){
+        return '<div class="mix-row">' +
+          '<span class="mix-row-label"><span class="dot '+r.key+'"></span>'+r.label+'</span>' +
+          '<span class="mix-row-bar"><i class="'+r.key+'" style="width:'+r.pct+'%"></i></span>' +
+          '<span class="mix-row-pct">'+r.pct+'%</span>' +
+          '<span class="mix-row-n">'+r.value.toLocaleString('pt-BR')+'</span>' +
         '</div>';
+      }).join('');
+      return '<div class="mix-col"><div class="mix-col-title">'+title+' <b>'+data.total.toLocaleString('pt-BR')+'</b></div>'+rowsHtml+'</div>';
     }
+
+    var wipData = buildRows(function(t){ return wipByType[t] || 0; });
+    var totalData = buildRows(function(t){ return (byType[t] && byType[t].total) || 0; });
 
     el.innerHTML =
-      '<div class="mix-title">Composição do trabalho <span class="mix-note">— histórico completo (todos os itens já criados, de New até Resolved): '+grandTotal.toLocaleString('pt-BR')+' itens no total. Ordenado da maior para a menor participação.</span></div>' +
-      '<div class="mix-cards">' + rows.map(mixCard).join('') + '</div>';
+      '<div class="mix-compact-title">Composição do trabalho de execução</div>' +
+      '<div class="mix-compact-grid">' +
+        renderList('Em andamento agora', wipData) +
+        renderList('Histórico total', totalData) +
+      '</div>';
   })();
 
   // ---------- Épicos (delivery) section ----------
