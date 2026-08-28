@@ -709,13 +709,14 @@ def build_type_map():
 
 
 # =========================================================
-#  PARTE 4c — Composição por frente de trabalho (New -> Em teste)
+#  PARTE 4c — Composição por frente de trabalho (Backlog -> Em teste)
 #  Regra: itens de Melhoria/User Story/Bug/Spike CRIADOS entre
-#  janeiro/2026 e hoje, cujo estado NÃO seja Resolved/Closed/Removed
-#  (ou seja: do início do fluxo até a última etapa antes de finalizar).
+#  janeiro/2026 e hoje, já triados (estado a partir de "Backlog",
+#  excluindo "New" que ainda não entrou no board) e ainda não
+#  finalizados (exclui Resolved/Closed/Removed).
 # =========================================================
 def build_activity_composition():
-    print("Buscando Composição por Frente de Trabalho (New->Em teste, jan/2026-hoje)...")
+    print("Buscando Composição por Frente de Trabalho (Backlog->Em teste, jan/2026-hoje)...")
     COMP_TYPES = ['Melhoria', 'User Story', 'Bug', 'Spike']
     types_wiql = ",".join(f"'{t}'" for t in COMP_TYPES)
     q = (f"SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project "
@@ -725,20 +726,20 @@ def build_activity_composition():
     fields = ["System.Id", "System.WorkItemType", "System.State"]
     items = batch_fetch(ids, fields)
 
-    FINISHED_STATES = {"Resolved", "Closed", "Removed"}
+    EXCLUDED_STATES = {"New", "Resolved", "Closed", "Removed"}
     counts = {t: 0 for t in COMP_TYPES}
     for it in items:
         f = it["fields"]
         t = f["System.WorkItemType"]
         s = f["System.State"]
-        if t in counts and s not in FINISHED_STATES:
+        if t in counts and s not in EXCLUDED_STATES:
             counts[t] += 1
 
     total = sum(counts.values())
     result = {}
     for t in COMP_TYPES:
         result[t] = {"count": counts[t], "pct": round(100 * counts[t] / total) if total else 0}
-    print(f"  Total em andamento (New->Em teste, jan/2026-hoje): {total} — {result}")
+    print(f"  Total em andamento (Backlog->Em teste, jan/2026-hoje): {total} — {result}")
     return {"items": result, "total": total, "period_label": "jan/2026 - hoje"}
 
 
