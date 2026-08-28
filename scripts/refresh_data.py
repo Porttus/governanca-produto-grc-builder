@@ -39,6 +39,7 @@ INDEX_PATH = os.path.join(REPO_ROOT, "index.html")
 RELEVANT_TREE_TYPES = "'Epic','Discovery','Feature','Solicitação','Melhoria','User Story','Bug','Spike'"
 FLOW_TYPES_WIQL = "'Feature','Solicitação','Melhoria','User Story','Bug','Spike'"
 RESOLVED = {"Closed", "Feito", "Removed"}
+OPEN_STATES = {"New", "Backlog"}  # estados de "ainda não iniciado" — nem WIP, nem concluído
 FM_FLOW_TYPES = ["Melhoria", "User Story", "Bug", "Spike"]
 FM_ALL_TYPES = ["Feature", "Solicitação", "Melhoria", "User Story", "Bug", "Spike"]
 EXCLUDE_FE = {"Feature", "Solicitação", "Discovery"}
@@ -508,8 +509,9 @@ def build_flow_metrics():
 
     aging_items = []
     for r in records:
-        if not r["resolved"] and r["activated"] and r["type"] not in EXCLUDE_FE:
-            age = (NOW - parse_dt(r["activated"])).total_seconds() / 86400
+        if not r["resolved"] and r["state"] not in OPEN_STATES and r["type"] not in EXCLUDE_FE:
+            age_ref = r["activated"] or r["created"]  # fallback: nem todo item tem ActivatedDate preenchido
+            age = (NOW - parse_dt(age_ref)).total_seconds() / 86400
             aging_items.append({"id": r["id"], "type": r["type"], "age_days": round(age, 1)})
     aging_items.sort(key=lambda x: -x["age_days"])
     age_buckets = [(0, 7), (7, 14), (14, 30), (30, 60), (60, 999999)]
@@ -538,7 +540,11 @@ def build_flow_metrics():
                      for r in blocked]
 
     # ---- WIP atual ----
-    wip_now = [r for r in records if not r["resolved"] and r["activated"] and r["type"] in FM_FLOW_TYPES]
+    # WIP real = não concluído e já saiu do estado inicial (New/Backlog) —
+    # não depende de ActivatedDate estar preenchido, já que nem todo fluxo
+    # customizado do processo garante isso (ex: Spikes em "Análise Técnica"
+    # sem essa data setada, mas visivelmente em andamento no board).
+    wip_now = [r for r in records if not r["resolved"] and r["state"] not in OPEN_STATES and r["type"] in FM_FLOW_TYPES]
     wip_now_by_type = dict(Counter(r["type"] for r in wip_now))
     wip_now_total = len(wip_now)
 
@@ -593,7 +599,7 @@ def build_flow_metrics():
 
     dedication = defaultdict(Counter)
     for r in records:
-        if not r["resolved"] and r["activated"] and r.get("assignee") and r["type"] in FM_FLOW_TYPES:
+        if not r["resolved"] and r["state"] not in OPEN_STATES and r.get("assignee") and r["type"] in FM_FLOW_TYPES:
             dedication[r["assignee"]][r["type"]] += 1
 
     def finalize_dev(dev_stats, period_keys):
