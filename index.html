@@ -170,58 +170,55 @@ body{
 .mix-card .mix-fill.discovery > i{ background:var(--amber); }
 .mix-card .mix-fill.bug > i{ background:var(--danger); }
 
-/* ================= ABA ESTRATÉGIA ================= */
-.est-header{ margin-bottom:28px; }
-.est-title{ font:700 22px 'Inter'; color:var(--ink); margin:0 0 6px; }
-.est-sub{ font-size:13px; color:var(--ink-soft); margin:0; }
-.est-section{ margin-bottom:40px; }
-.est-section-hd{
-  display:flex; align-items:center; gap:10px; margin-bottom:16px;
-  padding-bottom:10px; border-bottom:1px solid var(--line-strong);
+/* ================= Visão Estratégica — lista Azure DevOps ================= */
+.vst-section{ padding:24px clamp(16px,3vw,48px) 20px; }
+.vst-header{ margin-bottom:16px; }
+.vst-title{ font:700 18px 'Inter'; color:var(--ink); margin:0 0 4px; }
+.vst-sub{ font-size:12.5px; color:var(--ink-soft); margin:0; }
+.vst-toolbar{ display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-bottom:14px; }
+.vst-search{
+  flex:1 1 220px; max-width:320px; background:var(--cream-card);
+  border:1px solid var(--line-strong); border-radius:8px; padding:8px 12px;
+  font:13px 'Inter'; color:var(--ink); outline:none;
 }
-.est-section-hd h3{ font:700 15px 'Inter'; color:var(--ink); margin:0; }
-.est-section-hd .est-badge-count{ font:600 12px 'Inter'; background:var(--surface-2); color:var(--ink-soft); padding:3px 10px; border-radius:100px; border:1px solid var(--line-strong); }
-
-/* Funil Discovery */
-.est-funil{ display:grid; grid-template-columns:repeat(4,1fr); border:1px solid var(--line-strong); border-radius:12px; overflow:hidden; margin-bottom:24px; }
-.est-funil-step{ padding:14px 16px; text-align:center; background:var(--cream-card); }
-.est-funil-step:not(:last-child){ border-right:1px solid var(--line-strong); }
-.est-funil-n{ font:700 24px/1 'Inter'; color:var(--ink); margin-bottom:4px; }
-.est-funil-l{ font-size:11.5px; color:var(--ink-soft); }
-.est-funil-dot{ width:8px; height:8px; border-radius:50%; margin:0 auto 8px; }
-
-/* Cards de iniciativa */
-.est-cards{ display:flex; flex-direction:column; gap:8px; }
-.est-card{
-  background:var(--cream-card); border:1px solid var(--line-strong); border-radius:12px;
-  padding:14px 16px; display:flex; align-items:flex-start; gap:14px;
-  text-decoration:none; color:inherit; cursor:pointer; transition:background .12s;
+.vst-search:focus{ border-color:var(--forest); }
+.vst-type-chips{ display:flex; gap:6px; flex-wrap:wrap; }
+.vst-chip{
+  font:600 12px 'Inter'; padding:5px 13px; border-radius:100px; cursor:pointer;
+  border:1px solid var(--line-strong); background:var(--surface-2); color:var(--ink-soft);
+  transition:all .12s;
 }
-.est-card:hover{ background:var(--surface-2); }
-.est-card.est-impact{ border-color:rgba(251,191,36,.5); background:rgba(251,191,36,.07); }
-.est-card.est-impact:hover{ background:rgba(251,191,36,.12); }
-.est-card-left{ flex:1; min-width:0; }
-.est-card-id{ font:500 11px 'JetBrains Mono'; color:var(--ink-soft); margin-bottom:3px; }
-.est-card-title{ font:600 13.5px 'Inter'; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.est-card-meta{ font-size:12px; color:var(--ink-soft); margin-top:3px; line-height:1.4; }
-.est-card-right{ display:flex; flex-direction:column; align-items:flex-end; gap:5px; flex:none; min-width:110px; }
-.est-pill{ font-size:11px; padding:3px 9px; border-radius:100px; white-space:nowrap; font-weight:500; }
-.pill-new{ background:var(--surface-2); color:var(--ink-soft); border:1px solid var(--line-strong); }
-.pill-active{ background:rgba(59,130,246,.15); color:var(--t-blue); }
-.pill-done{ background:rgba(34,197,94,.15); color:var(--t-green); }
-.pill-impact{ background:rgba(251,191,36,.2); color:#B8860B; }
-.est-pct{ font:700 13px 'Inter'; color:var(--t-green); }
-.est-pct-bar{ width:80px; height:5px; border-radius:3px; background:rgba(255,255,255,.15); overflow:hidden; }
-.est-pct-bar i{ display:block; height:100%; background:var(--t-green); border-radius:3px; }
-
-/* Children de épico */
-.est-epic-children{ margin-top:10px; padding-top:10px; border-top:1px solid var(--line); display:flex; flex-direction:column; gap:6px; }
-.est-child{ display:flex; align-items:center; gap:8px; font-size:12px; color:var(--ink-soft); }
-.est-child-dot{ width:6px; height:6px; border-radius:50%; flex:none; }
-.est-child-title{ flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.est-child-state{ font-size:11px; padding:1px 7px; border-radius:100px; background:var(--surface-2); }
-.est-child-pct{ font:600 11px 'Inter'; color:var(--ink-soft); min-width:32px; text-align:right; }
-.est-more{ font-size:11.5px; color:var(--ink-soft); padding:4px 0; }
+.vst-chip.active{ background:var(--forest); border-color:var(--forest); color:#fff; }
+.vst-count{ font-size:12px; color:var(--ink-soft); margin-left:auto; }
+.vst-list{ display:flex; flex-direction:column; gap:6px; max-height:420px; overflow-y:auto; }
+.vst-card{
+  background:var(--cream-card); border:1px solid var(--line-strong); border-radius:10px;
+  padding:11px 14px; display:flex; flex-direction:column; gap:6px; cursor:default;
+}
+.vst-card:hover{ background:var(--surface-2); }
+.vst-card-row{ display:flex; align-items:center; gap:10px; }
+.vst-badge{
+  font:700 10.5px 'Inter'; padding:2px 8px; border-radius:100px; white-space:nowrap; flex:none;
+}
+.vst-badge.Discovery{ background:rgba(251,191,36,.18); color:#B8860B; }
+.vst-badge.Feature{ background:rgba(59,130,246,.15); color:var(--t-blue); }
+.vst-badge.Solicitação{ background:rgba(34,197,94,.14); color:var(--t-green); }
+.vst-card-id{ font:500 11px 'JetBrains Mono'; color:var(--ink-soft); flex:none; }
+.vst-card-title{ font:500 13px 'Inter'; color:var(--ink); flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.vst-state{
+  font:500 11px 'Inter'; padding:2px 8px; border-radius:100px; flex:none;
+  background:var(--surface-2); color:var(--ink-soft); border:1px solid var(--line-strong);
+}
+.vst-pct{ font:700 12px 'Inter'; color:var(--t-green); flex:none; min-width:36px; text-align:right; }
+.vst-pct-bar{ height:4px; border-radius:3px; background:rgba(255,255,255,.12); overflow:hidden; }
+.vst-pct-bar i{ display:block; height:100%; background:var(--t-green); border-radius:3px; }
+.vst-children{ display:flex; flex-wrap:wrap; gap:5px; }
+.vst-child-badge{
+  font-size:11px; padding:2px 8px; border-radius:100px;
+  background:var(--surface-2); color:var(--ink-soft); border:1px solid var(--line);
+  white-space:nowrap;
+}
+.vst-empty{ font-size:13px; color:var(--ink-soft); padding:24px 0; text-align:center; }
 
 /* ================= TOOLBAR ================= */
 .toolbar{
@@ -1081,7 +1078,6 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
   <button class="page-tab active" id="tab-roadmap" type="button">📋 Roadmap</button>
   <button class="page-tab" id="tab-timeline" type="button">🗓️ Timeline</button>
   <button class="page-tab" id="tab-flow" type="button">📊 Flow Metrics</button>
-  <button class="page-tab" id="tab-estrategia" type="button">🔭 Estratégia</button>
   <button class="page-tab" id="tab-strategy" type="button">🎯 Visão Estratégica</button>
 </nav>
 
@@ -1447,17 +1443,31 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
   </main>
 </div>
 
-<div id="page-estrategia" class="page" style="display:none;">
-  <main style="padding:28px clamp(20px,3vw,56px) 70px;">
-    <div class="est-header">
-      <h2 class="est-title">Roadmap Estratégico</h2>
-      <p class="est-sub">Visão executiva do ciclo de vida das iniciativas — do Discovery à entrega. Fonte: <b>Azure DevOps API (live)</b>.</p>
+<div id="page-strategy" class="page" style="display:none;">
+
+<div class="vst-section">
+  <div class="vst-header">
+    <h2 class="vst-title">🔭 Iniciativas — Discovery, Features &amp; Solicitações</h2>
+    <p class="vst-sub">Todos os itens confirmados no Azure DevOps. Fonte: <b>Azure DevOps API (live)</b>.</p>
+  </div>
+
+  <!-- Toolbar: busca + filtro de tipo -->
+  <div class="vst-toolbar">
+    <input class="vst-search" id="vst-search" type="text" placeholder="🔍  Buscar por ID ou título…">
+    <div class="vst-type-chips" id="vst-type-chips">
+      <button class="vst-chip active" data-type="all">Todos</button>
+      <button class="vst-chip" data-type="Discovery">Discovery</button>
+      <button class="vst-chip" data-type="Feature">Feature</button>
+      <button class="vst-chip" data-type="Solicitação">Solicitação</button>
     </div>
-    <div id="est-content"></div>
-  </main>
+    <span class="vst-count" id="vst-count"></span>
+  </div>
+
+  <div class="vst-list" id="vst-list"></div>
 </div>
 
-<div id="page-strategy" class="page" style="display:none;">
+<div style="border-top:1px solid var(--line-strong); margin:0 0 0 0;"></div>
+
   <iframe id="strategy-embed-frame" title="Roadmap GRC Builder (visão estratégica completa)"
     style="width:100%; height:calc(100vh - 140px); min-height:700px; border:0; display:block; background:#fff;">
   </iframe>
@@ -2098,163 +2108,23 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
   });
 
   // =========================================================
-  //  Aba Estratégia — visão executiva do ciclo de vida das
-  //  iniciativas (Discovery → Delivery), baseada exclusivamente
-  //  em dados confirmados pelo Azure DevOps (roadmap-data).
-  // =========================================================
-  var DISCOVERY_STATES = { 'New':'na fila', 'Descoberta':'em exploração', 'Decisão':'em exploração', 'Priorização':'em exploração', 'Feito':'concluída', 'Closed':'concluída', 'Removed':'removida' };
-  var RESOLVED_STATES = { 'Feito':1, 'Closed':1, 'Removed':1 };
-  var ACTIVE_DISC_STATES = { 'Descoberta':1, 'Decisão':1, 'Priorização':1 };
-
-  function estBadgeDisc(state){
-    if(RESOLVED_STATES[state]) return '<span class="est-pill pill-done">'+escapeHtml(state)+'</span>';
-    if(ACTIVE_DISC_STATES[state]) return '<span class="est-pill pill-active">'+escapeHtml(state)+'</span>';
-    return '<span class="est-pill pill-new">Na fila</span>';
-  }
-
-  function estPct(node){ return (node.pct||0); }
-
-  function estCardDisc(node, isImpact){
-    var pct = estPct(node);
-    var hasChildren = node.children && node.children.length > 0;
-    var childrenHtml = '';
-    if(hasChildren){
-      var shown = node.children.slice(0,3);
-      shown.forEach(function(c){
-        var cpct = estPct(c);
-        var cdot = RESOLVED_STATES[c.state] ? 'var(--t-green)' : 'var(--t-blue)';
-        childrenHtml += '<div class="est-child">'+
-          '<span class="est-child-dot" style="background:'+cdot+'"></span>'+
-          '<span class="est-child-title">'+escapeHtml(c.type+' — '+c.title)+'</span>'+
-          '<span class="est-child-state">'+escapeHtml(c.state||'')+'</span>'+
-          '<span class="est-child-pct">'+cpct+'%</span>'+
-        '</div>';
-      });
-      if(node.children.length > 3) childrenHtml += '<div class="est-more">+ '+(node.children.length-3)+' outros filhos</div>';
-    }
-    var metaChildNote = hasChildren ? node.children.length+' '+(node.children.length===1?'filho':'filhos')+' no Azure DevOps' : 'sem filhos vinculados no Azure DevOps';
-    return '<a class="est-card'+(isImpact?' est-impact':'')+'" href="'+azureDevOpsUrl(node.id)+'" target="_blank" rel="noopener">'+
-      '<div class="est-card-left">'+
-        '<div class="est-card-id">#'+node.id+'</div>'+
-        '<div class="est-card-title">'+escapeHtml(node.title)+'</div>'+
-        '<div class="est-card-meta">'+escapeHtml(node.state||'')+(hasChildren?' · '+metaChildNote:' · '+metaChildNote)+'</div>'+
-        (hasChildren ? '<div class="est-epic-children">'+childrenHtml+'</div>' : '')+
-      '</div>'+
-      '<div class="est-card-right">'+
-        estBadgeDisc(node.state)+
-        (pct>0 ? '<span class="est-pct">'+pct+'%</span><div class="est-pct-bar"><i style="width:'+pct+'%"></i></div>' : '')+
-      '</div>'+
-    '</a>';
-  }
-
-  function estCardEpic(node){
-    var pct = estPct(node);
-    var features = (node.children||[]).filter(function(c){ return c.type==='Feature'||c.type==='Solicitação'; });
-    var shown = features.slice(0,5);
-    var childrenHtml = shown.map(function(c){
-      var cpct = estPct(c);
-      var done = RESOLVED_STATES[c.state];
-      var cdot = done ? 'var(--t-green)' : 'var(--t-blue)';
-      return '<div class="est-child">'+
-        '<span class="est-child-dot" style="background:'+cdot+'"></span>'+
-        '<span class="est-child-title">'+escapeHtml(c.type+' — '+c.title)+'</span>'+
-        '<span class="est-child-state">'+escapeHtml(c.state||'')+'</span>'+
-        '<span class="est-child-pct">'+cpct+'%</span>'+
-      '</div>';
-    }).join('');
-    if(features.length>5) childrenHtml += '<div class="est-more">+ '+(features.length-5)+' features / solicitações</div>';
-    var stateColor = pct===100 ? 'pill-done' : 'pill-active';
-    return '<div class="est-card">'+
-      '<div class="est-card-left">'+
-        '<div class="est-card-id">#'+node.id+'</div>'+
-        '<div class="est-card-title">'+escapeHtml(node.title)+'</div>'+
-        '<div class="est-card-meta">'+escapeHtml(node.state||'')+' · '+features.length+' features/solicitações vinculadas</div>'+
-        (features.length ? '<div class="est-epic-children">'+childrenHtml+'</div>' : '')+
-      '</div>'+
-      '<div class="est-card-right">'+
-        '<span class="est-pill '+stateColor+'">'+pct+'% concluído</span>'+
-        '<div class="est-pct-bar"><i style="width:'+pct+'%"></i></div>'+
-      '</div>'+
-    '</div>';
-  }
-
-  function buildEstrategia(){
-    var el = document.getElementById('est-content');
-    if(!el) return;
-    var discAll = DATA.discovery.full || [];
-    var epicsAll = DATA.epics.full || [];
-
-    // --- Contagens Discovery ---
-    var discNew=0, discActive=0, discDone=0;
-    discAll.forEach(function(n){
-      if(RESOLVED_STATES[n.state]) discDone++;
-      else if(ACTIVE_DISC_STATES[n.state]) discActive++;
-      else discNew++;
-    });
-
-    // --- Funil ---
-    var funil = '<div class="est-section">'+
-      '<div class="est-section-hd"><h3>Discovery</h3><span class="est-badge-count">'+discAll.length+' iniciativas</span></div>'+
-      '<div class="est-funil">'+
-        '<div class="est-funil-step"><div class="est-funil-dot" style="background:var(--ink-soft);opacity:.5"></div><div class="est-funil-n">'+discNew+'</div><div class="est-funil-l">Na fila (New)</div></div>'+
-        '<div class="est-funil-step"><div class="est-funil-dot" style="background:var(--t-blue)"></div><div class="est-funil-n">'+discActive+'</div><div class="est-funil-l">Em exploração</div></div>'+
-        '<div class="est-funil-step"><div class="est-funil-dot" style="background:var(--ink-soft);opacity:.3"></div><div class="est-funil-n">0</div><div class="est-funil-l">Priorização</div></div>'+
-        '<div class="est-funil-step"><div class="est-funil-dot" style="background:var(--t-green)"></div><div class="est-funil-n">'+discDone+'</div><div class="est-funil-l">Concluídas</div></div>'+
-      '</div>';
-
-    // Concluídas (com filhos = virou delivery)
-    var concluidas = discAll.filter(function(n){ return RESOLVED_STATES[n.state]; });
-    var ativas = discAll.filter(function(n){ return ACTIVE_DISC_STATES[n.state]; });
-    var fila = discAll.filter(function(n){ return !RESOLVED_STATES[n.state] && !ACTIVE_DISC_STATES[n.state]; });
-
-    if(concluidas.length){
-      funil += '<div style="margin-bottom:10px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);font-weight:500;">Concluídas — elo com Delivery</div><div class="est-cards">';
-      funil += concluidas.map(function(n){ return estCardDisc(n, false); }).join('');
-      funil += '</div>';
-    }
-    if(ativas.length){
-      funil += '<div style="margin:16px 0 10px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);font-weight:500;">Em exploração ativa</div><div class="est-cards">';
-      funil += ativas.map(function(n){ return estCardDisc(n, false); }).join('');
-      funil += '</div>';
-    }
-    if(fila.length){
-      funil += '<div style="margin:16px 0 10px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);font-weight:500;">Na fila ('+fila.length+' iniciativas em New)</div><div class="est-cards">';
-      funil += fila.map(function(n){ return estCardDisc(n, false); }).join('');
-      funil += '</div>';
-    }
-    funil += '</div>';
-
-    // --- Delivery ---
-    var epicCards = epicsAll.map(function(n){ return estCardEpic(n); }).join('');
-    var delivery = '<div class="est-section">'+
-      '<div class="est-section-hd"><h3>Delivery</h3><span class="est-badge-count">'+epicsAll.length+' épicos ativos</span></div>'+
-      '<div class="est-cards">'+epicCards+'</div>'+
-    '</div>';
-
-    el.innerHTML = funil + delivery;
-  }
-
-  // =========================================================
   //  Page tabs (Roadmap <-> Linha do Tempo)
   // =========================================================
   (function initTabs(){
     var tabRoadmap = document.getElementById('tab-roadmap');
     var tabTimeline = document.getElementById('tab-timeline');
     var tabFlow = document.getElementById('tab-flow');
-    var tabEstrategia = document.getElementById('tab-estrategia');
     var tabStrategy = document.getElementById('tab-strategy');
     var pageRoadmap = document.getElementById('page-roadmap');
     var pageTimeline = document.getElementById('page-timeline');
     var pageFlow = document.getElementById('page-flow');
-    var pageEstrategia = document.getElementById('page-estrategia');
     var pageStrategy = document.getElementById('page-strategy');
     var timelineBuilt = false;
     var flowBuilt = false;
-    var estrategiaBuilt = false;
     var strategyLoaded = false;
 
-    var allTabs = [tabRoadmap, tabTimeline, tabFlow, tabEstrategia, tabStrategy];
-    var allPages = [pageRoadmap, pageTimeline, pageFlow, pageEstrategia, pageStrategy];
+    var allTabs = [tabRoadmap, tabTimeline, tabFlow, tabStrategy];
+    var allPages = [pageRoadmap, pageTimeline, pageFlow, pageStrategy];
     function activate(tab, page){
       allTabs.forEach(function(t){ t.classList.toggle('active', t === tab); });
       allPages.forEach(function(p){ p.style.display = (p === page) ? '' : 'none'; });
@@ -2270,6 +2140,96 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
       for(var i=0; i<binary.length; i++){ bytes[i] = binary.charCodeAt(i); }
       var decoded = new TextDecoder('utf-8').decode(bytes);
       frame.srcdoc = decoded;
+
+      // Renderizar lista Azure DevOps na visão estratégica
+      buildVstList();
+    }
+
+    // ---- Visão Estratégica: lista Discovery / Feature / Solicitação do Azure DevOps ----
+    var VST_STATE = { query:'', type:'all' };
+    function buildVstList(){
+      var listEl = document.getElementById('vst-list');
+      var countEl = document.getElementById('vst-count');
+      if(!listEl) return;
+
+      // Coletar todos os itens Discovery, Feature e Solicitação do roadmap-data
+      var items = [];
+      function walk(nodes){
+        (nodes||[]).forEach(function(n){
+          if(n.type==='Discovery'||n.type==='Feature'||n.type==='Solicitação'){
+            items.push(n);
+          }
+          walk(n.children);
+        });
+      }
+      walk(DATA.epics.full);
+      walk(DATA.discovery.full);
+
+      // Remover duplicatas por ID
+      var seen = {}; items = items.filter(function(n){ if(seen[n.id]) return false; seen[n.id]=1; return true; });
+
+      // Filtrar
+      var q = VST_STATE.query.toLowerCase();
+      var filtered = items.filter(function(n){
+        var typeOk = VST_STATE.type==='all' || n.type===VST_STATE.type;
+        var qOk = !q || n.id.toLowerCase().includes(q) || (n.title||'').toLowerCase().includes(q);
+        return typeOk && qOk;
+      });
+
+      countEl.textContent = filtered.length + ' de ' + items.length + ' itens';
+
+      if(!filtered.length){
+        listEl.innerHTML = '<div class="vst-empty">Nenhum item encontrado para os filtros selecionados.</div>';
+        return;
+      }
+
+      var TYPE_ORDER = {Discovery:0, Feature:1, 'Solicitação':2};
+      filtered.sort(function(a,b){
+        var td = (TYPE_ORDER[a.type]||0) - (TYPE_ORDER[b.type]||0);
+        return td !== 0 ? td : parseInt(a.id) - parseInt(b.id);
+      });
+
+      listEl.innerHTML = filtered.map(function(n){
+        var childrenHtml = '';
+        if(n.children && n.children.length){
+          var shown = n.children.slice(0,6);
+          childrenHtml = '<div class="vst-children">' +
+            shown.map(function(c){
+              var done = c.resolved ? ' style="opacity:.55"' : '';
+              return '<span class="vst-child-badge"'+done+'>#'+c.id+' '+escapeHtml(c.type)+' — '+escapeHtml((c.title||'').slice(0,35))+(c.resolved?' ✓':'')+'</span>';
+            }).join('') +
+            (n.children.length>6 ? '<span class="vst-child-badge">+ '+(n.children.length-6)+' mais</span>' : '') +
+          '</div>';
+        }
+        var pctBar = n.pct>0 ? '<div class="vst-pct-bar"><i style="width:'+n.pct+'%"></i></div>' : '';
+        return '<a class="vst-card" href="'+azureDevOpsUrl(n.id)+'" target="_blank" rel="noopener">'+
+          '<div class="vst-card-row">'+
+            '<span class="vst-badge '+n.type+'">'+n.type+'</span>'+
+            '<span class="vst-card-id">#'+n.id+'</span>'+
+            '<span class="vst-card-title" title="'+escapeHtml(n.title)+'">'+escapeHtml(n.title)+'</span>'+
+            '<span class="vst-state">'+escapeHtml(n.state||'')+'</span>'+
+            '<span class="vst-pct">'+n.pct+'%</span>'+
+          '</div>'+
+          pctBar+
+          childrenHtml+
+        '</a>';
+      }).join('');
+
+      // Chips
+      document.querySelectorAll('#vst-type-chips .vst-chip').forEach(function(chip){
+        chip.classList.toggle('active', chip.dataset.type===VST_STATE.type);
+        chip.onclick = function(){
+          VST_STATE.type = chip.dataset.type;
+          buildVstList();
+        };
+      });
+
+      // Busca
+      var searchEl = document.getElementById('vst-search');
+      if(searchEl && !searchEl._bound){
+        searchEl._bound = true;
+        searchEl.oninput = function(){ VST_STATE.query = searchEl.value; buildVstList(); };
+      }
     }
 
     tabRoadmap.addEventListener('click', function(){ activate(tabRoadmap, pageRoadmap); });
@@ -2280,10 +2240,6 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
     tabFlow.addEventListener('click', function(){
       activate(tabFlow, pageFlow);
       if(!flowBuilt){ flowBuilt = true; buildFlowMetrics(); }
-    });
-    tabEstrategia.addEventListener('click', function(){
-      activate(tabEstrategia, pageEstrategia);
-      if(!estrategiaBuilt){ estrategiaBuilt = true; buildEstrategia(); }
     });
     tabStrategy.addEventListener('click', function(){
       activate(tabStrategy, pageStrategy);
