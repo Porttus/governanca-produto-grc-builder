@@ -170,55 +170,81 @@ body{
 .mix-card .mix-fill.discovery > i{ background:var(--amber); }
 .mix-card .mix-fill.bug > i{ background:var(--danger); }
 
-/* ================= Visão Estratégica — lista Azure DevOps ================= */
-.vst-section{ padding:24px clamp(16px,3vw,48px) 20px; }
-.vst-header{ margin-bottom:16px; }
-.vst-title{ font:700 18px 'Inter'; color:var(--ink); margin:0 0 4px; }
-.vst-sub{ font-size:12.5px; color:var(--ink-soft); margin:0; }
-.vst-toolbar{ display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-bottom:14px; }
-.vst-search{
-  flex:1 1 220px; max-width:320px; background:var(--cream-card);
-  border:1px solid var(--line-strong); border-radius:8px; padding:8px 12px;
-  font:13px 'Inter'; color:var(--ink); outline:none;
+/* ================= SEÇÃO INICIATIVAS ================= */
+.ini-section{
+  padding:32px clamp(20px,3vw,56px) 48px;
+  background:
+    radial-gradient(900px 300px at 88% 0%, rgba(59,130,246,.1), transparent 65%),
+    var(--cream);
+  border-top:1px solid var(--line-strong);
 }
-.vst-search:focus{ border-color:var(--forest); }
-.vst-type-chips{ display:flex; gap:6px; flex-wrap:wrap; }
-.vst-chip{
-  font:600 12px 'Inter'; padding:5px 13px; border-radius:100px; cursor:pointer;
+.ini-header{ display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px; margin-bottom:24px; }
+.ini-title-row{ flex:1; min-width:0; }
+.ini-title{ font:700 20px 'Inter'; color:var(--ink); margin:0 0 5px; }
+.ini-sub{ font-size:13px; color:var(--ink-soft); margin:0; }
+.ini-controls{ display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
+.ini-search{
+  width:220px; background:var(--cream-card); border:1px solid var(--line-strong);
+  border-radius:8px; padding:8px 13px; font:13px 'Inter'; color:var(--ink); outline:none;
+}
+.ini-search:focus{ border-color:var(--forest); }
+.ini-filter-chips{ display:flex; gap:6px; }
+.ini-chip{
+  font:600 12px 'Inter'; padding:5px 14px; border-radius:100px; cursor:pointer;
   border:1px solid var(--line-strong); background:var(--surface-2); color:var(--ink-soft);
   transition:all .12s;
 }
-.vst-chip.active{ background:var(--forest); border-color:var(--forest); color:#fff; }
-.vst-count{ font-size:12px; color:var(--ink-soft); margin-left:auto; }
-.vst-list{ display:flex; flex-direction:column; gap:6px; max-height:420px; overflow-y:auto; }
-.vst-card{
-  background:var(--cream-card); border:1px solid var(--line-strong); border-radius:10px;
-  padding:11px 14px; display:flex; flex-direction:column; gap:6px; cursor:default;
+.ini-chip--active{ background:var(--forest); border-color:var(--forest); color:#fff; }
+
+/* Grupo (Discovery / Feature / Solicitação) */
+.ini-group{ margin-bottom:24px; }
+.ini-group-header{
+  display:flex; align-items:center; gap:10px; padding:10px 0; cursor:pointer; user-select:none;
+  border-bottom:1px solid var(--line-strong); margin-bottom:10px;
 }
-.vst-card:hover{ background:var(--surface-2); }
-.vst-card-row{ display:flex; align-items:center; gap:10px; }
-.vst-badge{
-  font:700 10.5px 'Inter'; padding:2px 8px; border-radius:100px; white-space:nowrap; flex:none;
+.ini-group-header:hover .ini-group-label{ color:var(--ink); }
+.ini-group-dot{ width:10px; height:10px; border-radius:50%; flex:none; }
+.ini-group-label{ font:700 13px 'Inter'; color:var(--ink-soft); flex:1; }
+.ini-group-count{ font:600 11px 'Inter'; background:var(--surface-2); color:var(--ink-soft); padding:2px 9px; border-radius:100px; border:1px solid var(--line-strong); }
+.ini-group-chevron{ width:16px; height:16px; color:var(--ink-soft); transition:transform .18s; flex:none; }
+.ini-group-chevron.open{ transform:rotate(90deg); }
+.ini-group-body{ display:flex; flex-direction:column; gap:6px; }
+.ini-group-body.collapsed{ display:none; }
+
+/* Card de iniciativa */
+.ini-card{
+  display:grid; grid-template-columns:auto 1fr auto;
+  align-items:start; gap:12px;
+  background:var(--cream-card); border:1px solid var(--line-strong);
+  border-radius:10px; padding:12px 14px; text-decoration:none; color:inherit;
+  transition:background .12s, border-color .12s;
 }
-.vst-badge.Discovery{ background:rgba(251,191,36,.18); color:#B8860B; }
-.vst-badge.Feature{ background:rgba(59,130,246,.15); color:var(--t-blue); }
-.vst-badge.Solicitação{ background:rgba(34,197,94,.14); color:var(--t-green); }
-.vst-card-id{ font:500 11px 'JetBrains Mono'; color:var(--ink-soft); flex:none; }
-.vst-card-title{ font:500 13px 'Inter'; color:var(--ink); flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.vst-state{
-  font:500 11px 'Inter'; padding:2px 8px; border-radius:100px; flex:none;
-  background:var(--surface-2); color:var(--ink-soft); border:1px solid var(--line-strong);
-}
-.vst-pct{ font:700 12px 'Inter'; color:var(--t-green); flex:none; min-width:36px; text-align:right; }
-.vst-pct-bar{ height:4px; border-radius:3px; background:rgba(255,255,255,.12); overflow:hidden; }
-.vst-pct-bar i{ display:block; height:100%; background:var(--t-green); border-radius:3px; }
-.vst-children{ display:flex; flex-wrap:wrap; gap:5px; }
-.vst-child-badge{
+.ini-card:hover{ background:var(--surface-2); border-color:var(--t-blue); }
+.ini-card.resolved{ opacity:.65; }
+.ini-card-left{ display:flex; flex-direction:column; gap:2px; }
+.ini-card-id{ font:500 11px 'JetBrains Mono'; color:var(--ink-soft); }
+.ini-card-pct-wrap{ display:flex; align-items:center; gap:6px; margin-top:6px; }
+.ini-card-pct-bar{ width:52px; height:4px; border-radius:3px; background:rgba(255,255,255,.12); overflow:hidden; }
+.ini-card-pct-bar i{ display:block; height:100%; border-radius:3px; }
+.ini-card-pct-n{ font:700 11px 'Inter'; }
+.ini-card-mid{ min-width:0; }
+.ini-card-title{ font:500 13px/1.4 'Inter'; color:var(--ink); }
+.ini-card-children{ display:flex; flex-wrap:wrap; gap:4px; margin-top:7px; }
+.ini-child-pill{
   font-size:11px; padding:2px 8px; border-radius:100px;
   background:var(--surface-2); color:var(--ink-soft); border:1px solid var(--line);
   white-space:nowrap;
 }
-.vst-empty{ font-size:13px; color:var(--ink-soft); padding:24px 0; text-align:center; }
+.ini-child-pill.done{ opacity:.6; }
+.ini-card-right{ display:flex; flex-direction:column; align-items:flex-end; gap:5px; }
+.ini-state{
+  font:500 11px 'Inter'; padding:2px 9px; border-radius:100px;
+  background:var(--surface-2); color:var(--ink-soft); border:1px solid var(--line-strong);
+  white-space:nowrap;
+}
+.ini-state.active{ background:rgba(59,130,246,.12); color:var(--t-blue); border-color:rgba(59,130,246,.3); }
+.ini-state.done{ background:rgba(34,197,94,.12); color:var(--t-green); border-color:rgba(34,197,94,.3); }
+.ini-empty-group{ font-size:12.5px; color:var(--ink-soft); padding:10px 0; }
 
 /* ================= TOOLBAR ================= */
 .toolbar{
@@ -1194,6 +1220,25 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
   </main>
 </section>
 
+<!-- ===== SEÇÃO INICIATIVAS: Discovery / Feature / Solicitação ===== -->
+<section class="ini-section">
+  <div class="ini-header">
+    <div class="ini-title-row">
+      <h2 class="ini-title">Iniciativas</h2>
+      <p class="ini-sub">Discovery, Features e Solicitações mapeados no Azure DevOps — ciclo de vida de exploração à entrega. Fonte: <b>Azure DevOps API (live)</b>.</p>
+    </div>
+    <div class="ini-controls">
+      <input class="ini-search" id="ini-search" type="text" placeholder="Buscar por ID ou título…">
+      <div class="ini-filter-chips" id="ini-filter-chips">
+        <button class="ini-chip ini-chip--active" data-filter="all">Todos</button>
+        <button class="ini-chip" data-filter="open">Em aberto</button>
+        <button class="ini-chip" data-filter="done">Concluídos</button>
+      </div>
+    </div>
+  </div>
+  <div class="ini-groups" id="ini-groups"></div>
+</section>
+
 </div>
 
 <div id="page-timeline" class="page" style="display:none;">
@@ -1444,29 +1489,6 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
 </div>
 
 <div id="page-strategy" class="page" style="display:none;">
-
-<div class="vst-section">
-  <div class="vst-header">
-    <h2 class="vst-title">🔭 Iniciativas — Discovery, Features &amp; Solicitações</h2>
-    <p class="vst-sub">Todos os itens confirmados no Azure DevOps. Fonte: <b>Azure DevOps API (live)</b>.</p>
-  </div>
-
-  <!-- Toolbar: busca + filtro de tipo -->
-  <div class="vst-toolbar">
-    <input class="vst-search" id="vst-search" type="text" placeholder="🔍  Buscar por ID ou título…">
-    <div class="vst-type-chips" id="vst-type-chips">
-      <button class="vst-chip active" data-type="all">Todos</button>
-      <button class="vst-chip" data-type="Discovery">Discovery</button>
-      <button class="vst-chip" data-type="Feature">Feature</button>
-      <button class="vst-chip" data-type="Solicitação">Solicitação</button>
-    </div>
-    <span class="vst-count" id="vst-count"></span>
-  </div>
-
-  <div class="vst-list" id="vst-list"></div>
-</div>
-
-<div style="border-top:1px solid var(--line-strong); margin:0 0 0 0;"></div>
 
   <iframe id="strategy-embed-frame" title="Roadmap GRC Builder (visão estratégica completa)"
     style="width:100%; height:calc(100vh - 140px); min-height:700px; border:0; display:block; background:#fff;">
@@ -2020,6 +2042,166 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
   }
   renderHeroStats();
 
+  // =========================================================
+  //  Seção Iniciativas (Discovery / Feature / Solicitação)
+  //  Renderizada na aba Roadmap, abaixo das seções de Delivery/Discovery.
+  //  Fonte exclusiva: roadmap-data (Azure DevOps).
+  // =========================================================
+  (function buildIniSection(){
+    var TYPE_CONFIG = {
+      'Discovery':   { color:'#F7B679', label:'Discovery',   order:0 },
+      'Feature':     { color:'#3B82F6', label:'Feature',     order:1 },
+      'Solicitação': { color:'#22C55E', label:'Solicitação', order:2 },
+    };
+    var RESOLVED = { 'Feito':1, 'Closed':1, 'Removed':1 };
+    var ACTIVE   = { 'Active':1, 'Fazendo':1, 'A fazer':1, 'Doing':1, 'Decisão':1, 'Descoberta':1, 'Priorização':1 };
+
+    // Coletar todos os itens dos 3 tipos percorrendo epics.full e discovery.full
+    var all = [];
+    var seen = {};
+    function walk(nodes){
+      (nodes||[]).forEach(function(n){
+        if(TYPE_CONFIG[n.type] && !seen[n.id]){
+          seen[n.id] = 1;
+          all.push(n);
+        }
+        walk(n.children);
+      });
+    }
+    walk(DATA.epics.full);
+    walk(DATA.discovery.full);
+
+    // Estado de filtro
+    var state = { query:'', filter:'all' };
+
+    // Grupos colapsados: Discovery começa aberto, Feature e Solicitação também
+    var collapsed = { Discovery:false, Feature:false, 'Solicitação':false };
+
+    function stateClass(s){
+      if(RESOLVED[s]) return 'done';
+      if(ACTIVE[s])   return 'active';
+      return '';
+    }
+
+    function renderPct(n, color){
+      var pct = n.pct || 0;
+      return '<div class="ini-card-pct-wrap">' +
+        '<div class="ini-card-pct-bar"><i style="width:'+pct+'%;background:'+color+'"></i></div>' +
+        '<span class="ini-card-pct-n" style="color:'+color+'">'+pct+'%</span>' +
+      '</div>';
+    }
+
+    function renderCard(n, color){
+      var isDone = !!RESOLVED[n.state];
+      var childrenHtml = '';
+      if(n.children && n.children.length){
+        var shown = n.children.slice(0, 5);
+        childrenHtml = '<div class="ini-card-children">' +
+          shown.map(function(c){
+            var cls = c.resolved ? 'ini-child-pill done' : 'ini-child-pill';
+            return '<span class="'+cls+'">'+escapeHtml(c.type)+' #'+c.id+(c.resolved?' ✓':'')+'</span>';
+          }).join('') +
+          (n.children.length > 5 ? '<span class="ini-child-pill">+' + (n.children.length-5) + ' mais</span>' : '') +
+        '</div>';
+      }
+      return '<a class="ini-card'+(isDone?' resolved':'')+'" href="'+azureDevOpsUrl(n.id)+'" target="_blank" rel="noopener">'+
+        '<div class="ini-card-left">'+
+          '<span class="ini-card-id">#'+n.id+'</span>'+
+          renderPct(n, color)+
+        '</div>'+
+        '<div class="ini-card-mid">'+
+          '<div class="ini-card-title">'+escapeHtml(n.title)+'</div>'+
+          childrenHtml+
+        '</div>'+
+        '<div class="ini-card-right">'+
+          '<span class="ini-state '+stateClass(n.state)+'">'+escapeHtml(n.state||'—')+'</span>'+
+        '</div>'+
+      '</a>';
+    }
+
+    function getFiltered(){
+      var q = state.query.toLowerCase();
+      return all.filter(function(n){
+        var qOk = !q || n.id.toLowerCase().includes(q) || (n.title||'').toLowerCase().includes(q);
+        var fOk = state.filter==='all' ||
+                  (state.filter==='open' && !RESOLVED[n.state]) ||
+                  (state.filter==='done' && !!RESOLVED[n.state]);
+        return qOk && fOk;
+      });
+    }
+
+    function render(){
+      var groupsEl = document.getElementById('ini-groups');
+      if(!groupsEl) return;
+
+      var filtered = getFiltered();
+
+      // Agrupar por tipo
+      var groups = {};
+      Object.keys(TYPE_CONFIG).forEach(function(t){ groups[t] = []; });
+      filtered.forEach(function(n){ if(groups[n.type]) groups[n.type].push(n); });
+
+      var order = Object.keys(TYPE_CONFIG).sort(function(a,b){
+        return TYPE_CONFIG[a].order - TYPE_CONFIG[b].order;
+      });
+
+      groupsEl.innerHTML = order.map(function(type){
+        var cfg = TYPE_CONFIG[type];
+        var items = groups[type] || [];
+        var bodyHtml = items.length
+          ? items.map(function(n){ return renderCard(n, cfg.color); }).join('')
+          : '<div class="ini-empty-group">Nenhum item nesta categoria com os filtros atuais.</div>';
+
+        var isCollapsed = collapsed[type];
+        return '<div class="ini-group">'+
+          '<div class="ini-group-header" data-type="'+type+'">'+
+            '<span class="ini-group-dot" style="background:'+cfg.color+'"></span>'+
+            '<span class="ini-group-label">'+cfg.label+'</span>'+
+            '<span class="ini-group-count">'+items.length+'</span>'+
+            '<svg class="ini-group-chevron'+(isCollapsed?'':' open')+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 6 15 12 9 18"/></svg>'+
+          '</div>'+
+          '<div class="ini-group-body'+(isCollapsed?' collapsed':'')+'" id="ini-body-'+type.replace(/ã/g,'a')+'">'+
+            bodyHtml+
+          '</div>'+
+        '</div>';
+      }).join('');
+
+      // Eventos de colapso
+      groupsEl.querySelectorAll('.ini-group-header').forEach(function(hd){
+        hd.addEventListener('click', function(){
+          var type = hd.dataset.type;
+          collapsed[type] = !collapsed[type];
+          render();
+        });
+      });
+    }
+
+    // Busca
+    var searchEl = document.getElementById('ini-search');
+    if(searchEl){
+      searchEl.addEventListener('input', function(){
+        state.query = searchEl.value;
+        render();
+      });
+    }
+
+    // Chips de filtro
+    var chipsEl = document.getElementById('ini-filter-chips');
+    if(chipsEl){
+      chipsEl.addEventListener('click', function(e){
+        var chip = e.target.closest('.ini-chip');
+        if(!chip) return;
+        state.filter = chip.dataset.filter;
+        chipsEl.querySelectorAll('.ini-chip').forEach(function(c){
+          c.classList.toggle('ini-chip--active', c===chip);
+        });
+        render();
+      });
+    }
+
+    render();
+  })();
+
   // ---------- Evolução por tipo de trabalho (cards) ----------
   // % de cada frente e quantos itens estão em andamento agora.
   // Regra: itens de Melhoria/User Story/Bug/Spike criados entre jan/2026 e
@@ -2140,96 +2322,6 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
       for(var i=0; i<binary.length; i++){ bytes[i] = binary.charCodeAt(i); }
       var decoded = new TextDecoder('utf-8').decode(bytes);
       frame.srcdoc = decoded;
-
-      // Renderizar lista Azure DevOps na visão estratégica
-      buildVstList();
-    }
-
-    // ---- Visão Estratégica: lista Discovery / Feature / Solicitação do Azure DevOps ----
-    var VST_STATE = { query:'', type:'all' };
-    function buildVstList(){
-      var listEl = document.getElementById('vst-list');
-      var countEl = document.getElementById('vst-count');
-      if(!listEl) return;
-
-      // Coletar todos os itens Discovery, Feature e Solicitação do roadmap-data
-      var items = [];
-      function walk(nodes){
-        (nodes||[]).forEach(function(n){
-          if(n.type==='Discovery'||n.type==='Feature'||n.type==='Solicitação'){
-            items.push(n);
-          }
-          walk(n.children);
-        });
-      }
-      walk(DATA.epics.full);
-      walk(DATA.discovery.full);
-
-      // Remover duplicatas por ID
-      var seen = {}; items = items.filter(function(n){ if(seen[n.id]) return false; seen[n.id]=1; return true; });
-
-      // Filtrar
-      var q = VST_STATE.query.toLowerCase();
-      var filtered = items.filter(function(n){
-        var typeOk = VST_STATE.type==='all' || n.type===VST_STATE.type;
-        var qOk = !q || n.id.toLowerCase().includes(q) || (n.title||'').toLowerCase().includes(q);
-        return typeOk && qOk;
-      });
-
-      countEl.textContent = filtered.length + ' de ' + items.length + ' itens';
-
-      if(!filtered.length){
-        listEl.innerHTML = '<div class="vst-empty">Nenhum item encontrado para os filtros selecionados.</div>';
-        return;
-      }
-
-      var TYPE_ORDER = {Discovery:0, Feature:1, 'Solicitação':2};
-      filtered.sort(function(a,b){
-        var td = (TYPE_ORDER[a.type]||0) - (TYPE_ORDER[b.type]||0);
-        return td !== 0 ? td : parseInt(a.id) - parseInt(b.id);
-      });
-
-      listEl.innerHTML = filtered.map(function(n){
-        var childrenHtml = '';
-        if(n.children && n.children.length){
-          var shown = n.children.slice(0,6);
-          childrenHtml = '<div class="vst-children">' +
-            shown.map(function(c){
-              var done = c.resolved ? ' style="opacity:.55"' : '';
-              return '<span class="vst-child-badge"'+done+'>#'+c.id+' '+escapeHtml(c.type)+' — '+escapeHtml((c.title||'').slice(0,35))+(c.resolved?' ✓':'')+'</span>';
-            }).join('') +
-            (n.children.length>6 ? '<span class="vst-child-badge">+ '+(n.children.length-6)+' mais</span>' : '') +
-          '</div>';
-        }
-        var pctBar = n.pct>0 ? '<div class="vst-pct-bar"><i style="width:'+n.pct+'%"></i></div>' : '';
-        return '<a class="vst-card" href="'+azureDevOpsUrl(n.id)+'" target="_blank" rel="noopener">'+
-          '<div class="vst-card-row">'+
-            '<span class="vst-badge '+n.type+'">'+n.type+'</span>'+
-            '<span class="vst-card-id">#'+n.id+'</span>'+
-            '<span class="vst-card-title" title="'+escapeHtml(n.title)+'">'+escapeHtml(n.title)+'</span>'+
-            '<span class="vst-state">'+escapeHtml(n.state||'')+'</span>'+
-            '<span class="vst-pct">'+n.pct+'%</span>'+
-          '</div>'+
-          pctBar+
-          childrenHtml+
-        '</a>';
-      }).join('');
-
-      // Chips
-      document.querySelectorAll('#vst-type-chips .vst-chip').forEach(function(chip){
-        chip.classList.toggle('active', chip.dataset.type===VST_STATE.type);
-        chip.onclick = function(){
-          VST_STATE.type = chip.dataset.type;
-          buildVstList();
-        };
-      });
-
-      // Busca
-      var searchEl = document.getElementById('vst-search');
-      if(searchEl && !searchEl._bound){
-        searchEl._bound = true;
-        searchEl.oninput = function(){ VST_STATE.query = searchEl.value; buildVstList(); };
-      }
     }
 
     tabRoadmap.addEventListener('click', function(){ activate(tabRoadmap, pageRoadmap); });
