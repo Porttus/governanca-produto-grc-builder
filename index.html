@@ -2964,21 +2964,7 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
         '<div class="fm-kpi-label">Throughput'+scopeNote+'</div>' +
         '<div class="fm-kpi-main">'+fmt(throughputVal)+'<small title="Média de itens concluídos por semana no período selecionado nos filtros">'+throughputLabel+'</small></div>' +
         '<div class="fm-kpi-sub"><span title="Itens concluídos entre jan/2026 e hoje">Concluídos no período <b>'+fmt(FLOW_DATA.total_resolved_items)+'</b></span><span title="Itens criados, concluídos ou ainda em aberto entre jan/2026 e hoje">Base do período <b>'+fmt(FLOW_DATA.total_items_considered)+'</b></span></div>' +
-      '</div>' +
-      fmCapacityCardHtml();
-  }
-
-  function fmCapacityCardHtml(){
-    var cap = FLOW_DATA.capacity;
-    if(!cap) return '';
-    var overUnder = cap.utilization_pct >= 100 ? 'sobrecarregado' : (cap.utilization_pct >= 85 ? 'bem calibrado' : 'com folga');
-    return '<div class="fm-kpi-card capacity">' +
-      '<div class="fm-kpi-icon">⚙️</div>' +
-      '<div class="fm-kpi-label">Capacity (Lei de Little)</div>' +
-      '<div class="fm-kpi-main">'+fmt(cap.capacity_per_week)+'<small title="Calculado via Lei de Little: WIP atual ÷ Cycle Time médio, convertido para itens/semana">itens/semana (teórico)</small></div>' +
-      '<div class="fm-kpi-sub"><span title="Throughput realmente observado na semana">Real <b>'+fmt(cap.actual_throughput_per_week)+'</b>/sem</span><span title="Real ÷ Teórico — quanto da capacity calculada está sendo de fato utilizada">Utilização <b>'+fmt(cap.utilization_pct)+'%</b></span><span title="Itens de execução em andamento agora (Melhoria, User Story, Bug, Spike)">WIP <b>'+fmt(cap.wip_now)+'</b></span></div>' +
-      '<div class="fm-kpi-footnote">Capacity = WIP ÷ Cycle Time médio. Fluxo '+overUnder+' ('+fmt(cap.utilization_pct)+'% da capacity teórica em uso).</div>' +
-    '</div>';
+      '</div>';
   }
 
   function fmRenderThroughput(){
