@@ -317,26 +317,55 @@ def build_timeline_cards(roadmap_data, roadmap_nodes, children_of, iter_map, med
         start_date = f.get("Microsoft.VSTS.Scheduling.StartDate")
         target_date = f.get("Microsoft.VSTS.Scheduling.TargetDate")
         date_source = "real" if (start_date and target_date) else None
+        # Problemas conhecidos de preenchimento errado no Azure DevOps:
+        # - Itens com start > target têm datas invertidas no ADO.
+        #   Para itens Feito/Closed com esse problema, preferimos o par
+        #   ActivatedDate/ClosedDate que reflete o trabalho real.
+        # - Itens Removed não devem aparecer no roadmap visual.
+        if n["state"] == "Removed":
+            continue  # pula — não renderizar no roadmap
+        if start_date and target_date and target_date < start_date:
+            # Datas invertidas no ADO: se houver ActivatedDate/ClosedDate, usa-os
+            activated = f.get("Microsoft.VSTS.Common.ActivatedDate")
+            closed    = f.get("Microsoft.VSTS.Common.ClosedDate")
+            if activated and closed and closed >= activated:
+                start_date  = activated
+                target_date = closed
+                date_source = "historico_real"
+            else:
+                # Inverte as datas do ADO para pelo menos ter algo coerente
+                start_date, target_date = target_date, start_date
+                date_source = "historico_real"
+
         # O Azure DevOps da Porttus limpa Start/Target Date quando o item é
-        # fechado ("Feito"/"Closed") — para não perder o item do Roadmap
-        # Visual, usamos como substituto as datas reais de ativação/fechamento.
+        # fechado ("Feito"/"Closed"). Hierarquia de fallback por situação:
+        #
+        # RESOLVIDO sem datas:
+        #   start  → ActivatedDate → CreatedDate
+        #   target → ClosedDate (não usa ChangedDate: pode ser posterior ao encerramento)
+        #
+        # EM ABERTO sem ambas as datas:
+        #   start  → ActivatedDate → CreatedDate
+        #   target → estimativa via Lei de Little usando o Cycle Time mediano
+        #            (nunca usa ChangedDate como target pois é data de edição, não entrega)
         if not start_date or not target_date:
+            activated = f.get("Microsoft.VSTS.Common.ActivatedDate")
+            closed    = f.get("Microsoft.VSTS.Common.ClosedDate")
+            created   = f.get("System.CreatedDate")
+
             if n["state"] in RESOLVED:
-                start_date = start_date or f.get("Microsoft.VSTS.Common.ActivatedDate") or f.get("System.CreatedDate")
-                target_date = target_date or f.get("Microsoft.VSTS.Common.ClosedDate") or f.get("System.ChangedDate")
+                start_date  = start_date  or activated or created
+                target_date = target_date or closed    or activated or created
                 date_source = date_source or "historico_real"
             else:
-                # Item ainda em aberto sem agendamento definido: estima a data
-                # de entrega via Lei de Little — Start = início real do trabalho
-                # (ou criação, se ainda não começou) + mediana histórica de
-                # Cycle Time de Spike por sub-item (mesma lógica usada na
-                # Visão Estratégica para os itens de Discovery).
-                est_start = start_date or f.get("Microsoft.VSTS.Common.ActivatedDate") or f.get("System.CreatedDate")
+                # Em aberto: usa ActivatedDate como âncora de start real;
+                # se não tiver, CreatedDate. Target via Lei de Little.
+                est_start = start_date or activated or created
                 if est_start:
                     est_start_dt = parse_dt(est_start)
                     est_days = max(1, total) * median_spike_cycle
                     est_target_dt = est_start_dt + timedelta(days=round(est_days))
-                    start_date = start_date or est_start
+                    start_date  = start_date  or est_start
                     target_date = target_date or est_target_dt.isoformat()
                     date_source = date_source or "estimativa_lei_de_little"
         iteration_path = f.get("System.IterationPath")
