@@ -2559,8 +2559,18 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
 
     // bucket rows by calendar month of sprint.start; rows without a
     // resolvable sprint start go into a trailing "sem sprint" bucket.
+    // byMonth usa os rows JÁ FILTRADOS; byMonthAll usa TODOS os cards
+    // para detectar meses com dados ocultos pelo filtro.
     var byMonth = {};
+    var byMonthAll = {};
     var noSprintRows = [];
+    TL_CARDS.forEach(function(n){
+      if(n.sprint && n.sprint.start){
+        var mk = monthKey(n.sprint.start);
+        if(!byMonthAll[mk]) byMonthAll[mk] = 0;
+        byMonthAll[mk]++;
+      }
+    });
     rows.forEach(function(n){
       if(n.sprint && n.sprint.start){
         var mk = monthKey(n.sprint.start);
@@ -2578,7 +2588,8 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
     var today = new Date(); today.setDate(1); today.setHours(0,0,0,0);
     var maxMonth = new Date(RANGE_START);
     Object.keys(byMonth).forEach(function(mk){
-      var d = new Date(mk + '-01');
+      var parts = mk.split('-');
+      var d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, 1); // local, evita UTC drift
       if(d > maxMonth) maxMonth = d;
     });
     if(today > maxMonth) maxMonth = today;
@@ -2594,7 +2605,8 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
       colDefs.push({
         sprint: bucket ? bucket.sprint : null,
         rows: bucket ? bucket.rows : [],
-        emptyMonth: !bucket
+        emptyMonth: !bucket && !byMonthAll[mk],  // realmente sem dados
+        hiddenByFilter: !bucket && !!byMonthAll[mk]  // tem dados mas filtrados
       });
       cursor = new Date(cursor.getFullYear(), cursor.getMonth()+1, 1);
     }
@@ -2634,6 +2646,22 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
         placeholder.style.opacity = '.6';
         placeholder.textContent = 'Nenhum item neste mês';
         colEl.appendChild(placeholder);
+      } else if(col.hiddenByFilter){
+        var placeholder2 = document.createElement('div');
+        placeholder2.className = 'tl-col-none';
+        placeholder2.style.padding = '20px 6px';
+        placeholder2.style.opacity = '.5';
+        placeholder2.style.fontSize = '11px';
+        placeholder2.textContent = 'Itens ocultados pelo filtro';
+        colEl.appendChild(placeholder2);
+      } else if(col.rows.length === 0){
+        var placeholder3 = document.createElement('div');
+        placeholder3.className = 'tl-col-none';
+        placeholder3.style.padding = '20px 6px';
+        placeholder3.style.opacity = '.5';
+        placeholder3.style.fontSize = '11px';
+        placeholder3.textContent = 'Itens ocultados pelo filtro';
+        colEl.appendChild(placeholder3);
       } else {
         col.rows.forEach(function(n){
           colEl.appendChild(renderCard(n));
