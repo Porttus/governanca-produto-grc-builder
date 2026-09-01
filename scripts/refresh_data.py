@@ -36,12 +36,12 @@ if not PAT:
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INDEX_PATH = os.path.join(REPO_ROOT, "index.html")
 
-RELEVANT_TREE_TYPES = "'Epic','Discovery','Feature','Solicitação','Melhoria','User Story','Bug','Spike'"
-FLOW_TYPES_WIQL = "'Feature','Solicitação','Melhoria','User Story','Bug','Spike'"
+RELEVANT_TREE_TYPES = "'Epic','Discovery','Feature','Solicitação','Melhoria','User Story','Bug','Spike','Incidente','Iniciativas'"
+FLOW_TYPES_WIQL = "'Feature','Solicitação','Melhoria','User Story','Bug','Spike','Incidente','Iniciativas'"
 RESOLVED = {"Closed", "Feito", "Removed"}
 OPEN_STATES = {"New", "Backlog"}  # estados de "ainda não iniciado" — nem WIP, nem concluído
-FM_FLOW_TYPES = ["Melhoria", "User Story", "Bug", "Spike"]
-FM_ALL_TYPES = ["Feature", "Solicitação", "Melhoria", "User Story", "Bug", "Spike"]
+FM_FLOW_TYPES = ["Melhoria", "User Story", "Bug", "Spike", "Incidente", "Iniciativas"]
+FM_ALL_TYPES = ["Feature", "Solicitação", "Melhoria", "User Story", "Bug", "Spike", "Incidente", "Iniciativas"]
 EXCLUDE_FE = {"Feature", "Solicitação", "Discovery"}
 EXCLUDE_SCATTER = {"Feature", "Solicitação"}
 DEV_EXCLUDE = {"Lucas Shihomatsu", "Jonathan Assunção", "Thamerson Gomes",
@@ -152,7 +152,7 @@ def build_roadmap_tree():
     fields = ["System.Id", "System.Title", "System.WorkItemType", "System.State", "System.Parent"]
     items = batch_fetch(ids, fields)
     by_id_all = {it["fields"]["System.Id"]: it["fields"] for it in items}
-    relevant_types = {"Epic", "Discovery", "Feature", "Solicitação", "Melhoria", "User Story", "Bug", "Spike"}
+    relevant_types = {"Epic", "Discovery", "Feature", "Solicitação", "Melhoria", "User Story", "Bug", "Spike", "Incidente", "Iniciativas"}
 
     def resolve_parent(id_):
         seen = set()
@@ -705,7 +705,7 @@ def build_flow_metrics():
 # =========================================================
 def build_type_map():
     print("Buscando Mapa de Demandas por Tipo (todos os tipos, projeto inteiro)...")
-    TYPE_ORDER = ['Epic', 'Discovery', 'Feature', 'Solicitação', 'Melhoria', 'User Story', 'Bug', 'Spike']
+    TYPE_ORDER = ['Epic', 'Discovery', 'Feature', 'Solicitação', 'Melhoria', 'User Story', 'Bug', 'Spike', 'Incidente', 'Iniciativas']
     types_wiql = ",".join(f"'{t}'" for t in TYPE_ORDER)
     q = (f"SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project "
          f"AND [System.WorkItemType] IN ({types_wiql})")
@@ -774,7 +774,7 @@ def build_activity_composition():
 
 def build_priority_queue():
     print("Buscando Fila de Priorização (itens Novo/A fazer, todos os tipos)...")
-    QUEUE_TYPES = "'Discovery','Feature','Solicitação','Melhoria','User Story','Bug','Spike'"
+    QUEUE_TYPES = "'Discovery','Feature','Solicitação','Melhoria','User Story','Bug','Spike','Incidente','Iniciativas'"
     q = (f"SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project "
          f"AND [System.WorkItemType] IN ({QUEUE_TYPES}) "
          f"AND [System.State] IN ('A fazer','New')")
