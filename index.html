@@ -399,14 +399,17 @@ mark{ background:var(--amber-soft); color:var(--ink); border-radius:3px; padding
 .timeline-main{ padding:0; max-width:none; margin:0; }
 .tl-board-wrap{ position:relative; }
 .tl-nav-btn{
-  position:absolute; top:0; bottom:0; z-index:20; width:44px;
+  position:absolute; top:50%; transform:translateY(-50%); z-index:20;
+  width:40px; height:64px; border-radius:10px;
   background:var(--forest); color:#fff; border:none; cursor:pointer;
-  display:flex; align-items:center; justify-content:center; font-size:18px;
-  opacity:.92;
+  display:flex; align-items:center; justify-content:center;
+  font-size:22px; font-weight:300; opacity:.92;
+  box-shadow:0 4px 16px rgba(0,0,0,.35);
+  transition:opacity .12s, transform .1s;
 }
-.tl-nav-btn:hover{ opacity:1; }
-.tl-nav-prev{ left:0; }
-.tl-nav-next{ right:0; }
+.tl-nav-btn:hover{ opacity:1; transform:translateY(-50%) scale(1.06); }
+.tl-nav-prev{ left:6px; }
+.tl-nav-next{ right:6px; }
 /* ---- flow metrics page ---- */
 .fm-filter-group{ display:flex; align-items:center; gap:8px; }
 .fm-filter-label{ font:600 12px 'Inter'; color:var(--ink-soft); margin-right:2px; }
@@ -656,29 +659,23 @@ table.fm-table td.fm-num{ text-align:right; font-variant-numeric:tabular-nums; }
 table.fm-table .fm-type-badge{ font-size:11px; font-weight:700; padding:3px 9px; border-radius:100px; }
 
 .tl-top-scroll{
-  overflow-x:scroll; overflow-y:hidden; height:16px;
-  scrollbar-width:auto; scrollbar-color:var(--forest) var(--surface-2);
-  margin:0 44px;
+  overflow-x:scroll; overflow-y:hidden; height:6px;
+  scrollbar-width:thin; scrollbar-color:var(--forest) var(--surface-2);
+  margin:0 54px; border-radius:3px;
 }
-.tl-top-scroll::-webkit-scrollbar{ height:14px; }
-.tl-top-scroll::-webkit-scrollbar-track{ background:var(--surface-2); }
+.tl-top-scroll::-webkit-scrollbar{ height:6px; }
+.tl-top-scroll::-webkit-scrollbar-track{ background:var(--surface-2); border-radius:3px; }
 .tl-top-scroll::-webkit-scrollbar-thumb{
-  background:var(--forest); border-radius:7px; border:3px solid var(--surface-2);
+  background:var(--forest); border-radius:3px;
 }
 .tl-top-scroll::-webkit-scrollbar-thumb:hover{ background:var(--forest-soft); }
 #tl-top-scroll-spacer{ height:1px; }
 .tl-scroll{
   overflow-x:scroll; overflow-y:hidden; scroll-behavior:smooth;
-  scrollbar-width:auto; scrollbar-color:var(--forest) var(--surface-2);
-  padding-bottom:4px;
+  scrollbar-width:none;
+  padding-bottom:0;
 }
-.tl-scroll::-webkit-scrollbar{ height:16px; }
-.tl-scroll::-webkit-scrollbar-track{ background:var(--surface-2); }
-.tl-scroll::-webkit-scrollbar-thumb{
-  background:var(--forest); border-radius:8px;
-  border:3px solid var(--surface-2);
-}
-.tl-scroll::-webkit-scrollbar-thumb:hover{ background:var(--forest-soft); }
+.tl-scroll::-webkit-scrollbar{ display:none; }
 .tl-inner{ display:block; width:max-content; }
 .tl-month-row{ display:flex; position:sticky; top:0; z-index:10; }
 .tl-month-cell{
@@ -687,6 +684,13 @@ table.fm-table .fm-type-badge{ font-size:11px; font-weight:700; padding:3px 9px;
   display:flex; align-items:center; justify-content:center;
   font:700 15px 'Inter'; color:var(--ink); text-transform:capitalize;
   padding:14px 44px; height:20px;
+}
+.tl-month-cell.current-month{
+  background:var(--forest); color:#fff;
+}
+.tl-column.current-month-col{
+  background:rgba(47,111,235,.06);
+  border-right:1px solid rgba(47,111,235,.2);
 }
 .tl-columns-row{ display:flex; align-items:flex-start; }
 .tl-column{
@@ -2598,30 +2602,33 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
     var cursor = new Date(RANGE_START);
     var monthGroups = [];
     var colDefs = [];
+    var nowMk = new Date().getFullYear() + '-' + String(new Date().getMonth()+1).padStart(2,'0');
     while(cursor <= maxMonth){
       var mk = cursor.getFullYear() + '-' + String(cursor.getMonth()+1).padStart(2,'0');
       var bucket = byMonth[mk];
-      monthGroups.push({ label: monthFmt.format(cursor), count: 1 });
+      var isCurrentMonth = (mk === nowMk);
+      monthGroups.push({ label: monthFmt.format(cursor), count: 1, current: isCurrentMonth });
       colDefs.push({
         sprint: bucket ? bucket.sprint : null,
         rows: bucket ? bucket.rows : [],
-        emptyMonth: !bucket && !byMonthAll[mk],  // realmente sem dados
-        hiddenByFilter: !bucket && !!byMonthAll[mk]  // tem dados mas filtrados
+        emptyMonth: !bucket && !byMonthAll[mk],
+        hiddenByFilter: !bucket && !!byMonthAll[mk],
+        current: isCurrentMonth
       });
       cursor = new Date(cursor.getFullYear(), cursor.getMonth()+1, 1);
     }
 
     monthGroups.forEach(function(g){
       var cell = document.createElement('div');
-      cell.className = 'tl-month-cell';
+      cell.className = 'tl-month-cell' + (g.current ? ' current-month' : '');
       cell.style.width = (g.count * COL_WIDTH) + 'px';
-      cell.textContent = g.label;
+      cell.textContent = g.current ? ('📍 ' + g.label) : g.label;
       monthRoot.appendChild(cell);
     });
 
     colDefs.forEach(function(col){
       var colEl = document.createElement('div');
-      colEl.className = 'tl-column';
+      colEl.className = 'tl-column' + (col.current ? ' current-month-col' : '');
       colEl.style.width = COL_WIDTH + 'px';
 
       var head = document.createElement('div');
@@ -2691,14 +2698,89 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
     }
 
     syncTimelineTopScroll();
+    // Só vai para o mês atual na primeira vez que a timeline é aberta,
+    // não quando o usuário está filtrando/pesquisando
+    if(!window._tlScrolledToToday){
+      window._tlScrolledToToday = true;
+      requestAnimationFrame(scrollTimelineToCurrentMonth);
+    }
   }
 
   function wireTimelineNav(){
     var scrollEl = document.getElementById('tl-scroll');
     var prevBtn = document.getElementById('tl-nav-prev');
     var nextBtn = document.getElementById('tl-nav-next');
-    prevBtn.addEventListener('click', function(){ scrollEl.scrollBy({ left: -340, behavior: 'smooth' }); });
-    nextBtn.addEventListener('click', function(){ scrollEl.scrollBy({ left: 340, behavior: 'smooth' }); });
+    var COL_WIDTH = 340;
+
+    // Avança/retrocede exatamente uma coluna (340px)
+    prevBtn.addEventListener('click', function(){
+      scrollEl.scrollBy({ left: -COL_WIDTH, behavior: 'smooth' });
+    });
+    nextBtn.addEventListener('click', function(){
+      scrollEl.scrollBy({ left: COL_WIDTH, behavior: 'smooth' });
+    });
+
+    // Scroll horizontal com roda do mouse (sem Shift necessário)
+    scrollEl.addEventListener('wheel', function(e){
+      if(Math.abs(e.deltaY) > Math.abs(e.deltaX)){
+        e.preventDefault();
+        scrollEl.scrollBy({ left: e.deltaY * 2, behavior: 'auto' });
+      }
+    }, { passive: false });
+
+    // Drag-to-scroll com mouse
+    var isDragging = false, dragStartX = 0, dragStartScroll = 0;
+    scrollEl.addEventListener('mousedown', function(e){
+      if(e.button !== 0) return;
+      isDragging = true;
+      dragStartX = e.clientX;
+      dragStartScroll = scrollEl.scrollLeft;
+      scrollEl.style.cursor = 'grabbing';
+      scrollEl.style.userSelect = 'none';
+    });
+    document.addEventListener('mousemove', function(e){
+      if(!isDragging) return;
+      var dx = e.clientX - dragStartX;
+      scrollEl.scrollLeft = dragStartScroll - dx;
+    });
+    document.addEventListener('mouseup', function(){
+      if(!isDragging) return;
+      isDragging = false;
+      scrollEl.style.cursor = '';
+      scrollEl.style.userSelect = '';
+    });
+
+    // Teclado: setas esquerda/direita quando a timeline está visível
+    document.addEventListener('keydown', function(e){
+      var tl = document.getElementById('page-timeline');
+      if(!tl || tl.style.display === 'none') return;
+      if(e.target.tagName === 'INPUT') return;
+      if(e.key === 'ArrowLeft')  scrollEl.scrollBy({ left: -COL_WIDTH, behavior: 'smooth' });
+      if(e.key === 'ArrowRight') scrollEl.scrollBy({ left:  COL_WIDTH, behavior: 'smooth' });
+    });
+  }
+
+  function scrollTimelineToCurrentMonth(){
+    // Chamado após buildTimeline — posiciona no mês atual automaticamente
+    var scrollEl = document.getElementById('tl-scroll');
+    var inner    = document.getElementById('tl-inner');
+    if(!scrollEl || !inner) return;
+
+    var COL_WIDTH   = 340;
+    var RANGE_START = new Date(2026, 0, 1);
+    var now         = new Date();
+    var diffMonths  = (now.getFullYear() - RANGE_START.getFullYear()) * 12
+                    + (now.getMonth() - RANGE_START.getMonth());
+    var colIndex    = Math.max(0, diffMonths);
+
+    // Centraliza o mês atual na viewport
+    var targetScroll = colIndex * COL_WIDTH - (scrollEl.clientWidth / 2 - COL_WIDTH / 2);
+    targetScroll = Math.max(0, Math.min(targetScroll, inner.scrollWidth - scrollEl.clientWidth));
+    scrollEl.scrollLeft = targetScroll;
+
+    // Sincroniza a barra fina de progresso
+    var topScroll = document.getElementById('tl-top-scroll');
+    if(topScroll) topScroll.scrollLeft = scrollEl.scrollLeft;
   }
 
   // Duplicate, always-visible scrollbar pinned above the month header,
