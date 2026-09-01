@@ -704,11 +704,12 @@ def build_flow_metrics():
 #  PARTE 4b — Mapa de Demandas por Tipo (universo total do projeto)
 # =========================================================
 def build_type_map():
-    print("Buscando Mapa de Demandas por Tipo (todos os tipos, projeto inteiro)...")
+    print("Buscando Mapa de Demandas por Tipo (jan/2026 em diante)...")
     TYPE_ORDER = ['Epic', 'Discovery', 'Feature', 'Solicitação', 'Melhoria', 'User Story', 'Bug', 'Spike', 'Incidente', 'Iniciativas']
     types_wiql = ",".join(f"'{t}'" for t in TYPE_ORDER)
     q = (f"SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project "
-         f"AND [System.WorkItemType] IN ({types_wiql})")
+         f"AND [System.WorkItemType] IN ({types_wiql}) "
+         f"AND [System.CreatedDate] >= '2026-01-01'")
     ids = [wi["id"] for wi in wiql(q).get("workItems", [])]
     fields = ["System.Id", "System.WorkItemType", "System.State"]
     items = batch_fetch(ids, fields)
