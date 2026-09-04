@@ -346,7 +346,7 @@ def build_timeline_cards(roadmap_data, roadmap_nodes, children_of, iter_map, med
         #
         # EM ABERTO sem ambas as datas:
         #   start  → ActivatedDate → CreatedDate
-        #   target → estimativa via Lei de Little usando o Cycle Time mediano
+        #   target → estimativa via Previsibilidade usando o Cycle Time mediano
         #            (nunca usa ChangedDate como target pois é data de edição, não entrega)
         if not start_date or not target_date:
             activated = f.get("Microsoft.VSTS.Common.ActivatedDate")
@@ -359,7 +359,7 @@ def build_timeline_cards(roadmap_data, roadmap_nodes, children_of, iter_map, med
                 date_source = date_source or "historico_real"
             else:
                 # Em aberto: usa ActivatedDate como âncora de start real;
-                # se não tiver, CreatedDate. Target via Lei de Little.
+                # se não tiver, CreatedDate. Target via Previsibilidade.
                 est_start = start_date or activated or created
                 if est_start:
                     est_start_dt = parse_dt(est_start)
@@ -367,7 +367,7 @@ def build_timeline_cards(roadmap_data, roadmap_nodes, children_of, iter_map, med
                     est_target_dt = est_start_dt + timedelta(days=round(est_days))
                     start_date  = start_date  or est_start
                     target_date = target_date or est_target_dt.isoformat()
-                    date_source = date_source or "estimativa_lei_de_little"
+                    date_source = date_source or "estimativa_previsibilidade"
         iteration_path = f.get("System.IterationPath")
         sprint = iter_map.get(iteration_path) if iteration_path else None
         raw_tags = f.get("System.Tags", "") or ""
@@ -382,10 +382,10 @@ def build_timeline_cards(roadmap_data, roadmap_nodes, children_of, iter_map, med
         })
     n_real = sum(1 for c in cards if c["dateSource"] == "real")
     n_hist = sum(1 for c in cards if c["dateSource"] == "historico_real")
-    n_est = sum(1 for c in cards if c["dateSource"] == "estimativa_lei_de_little")
+    n_est = sum(1 for c in cards if c["dateSource"] == "estimativa_previsibilidade")
     n_none = sum(1 for c in cards if c["dateSource"] is None)
     print(f"  Timeline cards: {len(cards)} (datas reais: {n_real}, histórico real: {n_hist}, "
-          f"estimadas via Lei de Little: {n_est}, sem data: {n_none})")
+          f"estimadas via Previsibilidade: {n_est}, sem data: {n_none})")
     return cards
 
 
@@ -577,7 +577,7 @@ def build_flow_metrics():
     wip_now_by_type = dict(Counter(r["type"] for r in wip_now))
     wip_now_total = len(wip_now)
 
-    # ---- capacity (Lei de Little) ----
+    # ---- capacity (Previsibilidade) ----
     cycle_avg = overall["cycle_time"]["avg"]
     capacity_per_day = round(wip_now_total / cycle_avg, 2) if cycle_avg else 0
     capacity_per_week = round(capacity_per_day * 7, 1)
@@ -703,6 +703,56 @@ def build_flow_metrics():
 # =========================================================
 #  PARTE 4b — Mapa de Demandas por Tipo (universo total do projeto)
 # =========================================================
+def build_predictability():
+    """
+    Previsibilidade real de entrega — substitui o antigo cálculo teórico de
+    Capacity (Previsibilidade). Compara, para TODAS as Feature/Solicitação já
+    concluídas no histórico do projeto, a TargetDate planejada original
+    (quando o ADO ainda preservou o valor, ou seja, não foi zerado no
+    fechamento) contra a ClosedDate real — a métrica mais honesta de "quando
+    prometemos entregar" vs "quando de fato entregamos".
+    """
+    print("Calculando Previsibilidade real de entrega (Feature/Solicitação concluídas)...")
+    q = ("SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project "
+         "AND [System.WorkItemType] IN ('Feature','Solicitação') "
+         "AND [System.State] IN ('Closed','Feito')")
+    ids = [wi["id"] for wi in wiql(q).get("workItems", [])]
+    fields = ["System.Id", "Microsoft.VSTS.Scheduling.TargetDate", "Microsoft.VSTS.Common.ClosedDate"]
+    items = batch_fetch(ids, fields)
+
+    deltas = []
+    for it in items:
+        f = it["fields"]
+        target = f.get("Microsoft.VSTS.Scheduling.TargetDate")
+        closed = f.get("Microsoft.VSTS.Common.ClosedDate")
+        if not target or not closed:
+            continue
+        t = datetime.fromisoformat(target.replace("Z", "+00:00"))
+        c = datetime.fromisoformat(closed.replace("Z", "+00:00"))
+        deltas.append((c.date() - t.date()).days)
+
+    n = len(deltas)
+    if n == 0:
+        result = {"n_items": 0, "on_time_pct": None, "on_time_tol7_pct": None,
+                   "late_pct": None, "avg_delay_days": None, "median_delay_days": None}
+    else:
+        on_time = sum(1 for d in deltas if d <= 0)
+        on_time_tol7 = sum(1 for d in deltas if d <= 7)
+        late = sum(1 for d in deltas if d > 0)
+        avg_delay = round(sum(deltas) / n, 1)
+        median_delay = sorted(deltas)[n // 2]
+        result = {
+            "n_items": n,
+            "on_time_pct": round(100 * on_time / n, 1),
+            "on_time_tol7_pct": round(100 * on_time_tol7 / n, 1),
+            "late_pct": round(100 * late / n, 1),
+            "avg_delay_days": avg_delay,
+            "median_delay_days": median_delay,
+        }
+    print(f"  Previsibilidade: {result}")
+    return result
+
+
 def build_type_map():
     print("Buscando Mapa de Demandas por Tipo (jan/2026 em diante)...")
     TYPE_ORDER = ['Epic', 'Discovery', 'Feature', 'Solicitação', 'Melhoria', 'User Story', 'Bug', 'Spike', 'Incidente', 'Iniciativas']
@@ -842,6 +892,7 @@ def main():
     priority_queue = build_priority_queue()
     type_map = build_type_map()
     activity_composition = build_activity_composition()
+    predictability = build_predictability()
 
     html = replace_json_block(html, "roadmap-data", roadmap_data)
     html = replace_json_block(html, "timeline-cards-data", timeline_cards)
@@ -849,6 +900,7 @@ def main():
     html = replace_json_block(html, "priority-queue-data", priority_queue)
     html = replace_json_block(html, "type-map-data", type_map)
     html = replace_json_block(html, "activity-composition-data", activity_composition)
+    html = replace_json_block(html, "predictability-data", predictability)
 
     with open(INDEX_PATH, "w", encoding="utf-8") as fh:
         fh.write(html)
