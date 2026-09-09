@@ -906,6 +906,11 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
   flex:none; font-size:10.5px; color:var(--ink-soft); background:var(--surface-2);
   border:1px solid var(--line-strong); padding:2px 8px; border-radius:100px; white-space:nowrap;
 }
+.pq-state-tag.pq-state-new{ color:var(--ink-soft); background:var(--surface-2); border-color:var(--line-strong); }
+.pq-state-tag.pq-state-todo{ color:var(--t-blue); background:var(--t-blue-soft); border-color:rgba(91,141,239,.4); }
+.pq-state-tag.pq-state-doing{ color:var(--t-orange); background:var(--t-orange-soft); border-color:rgba(242,153,74,.4); }
+.pq-state-tag.pq-state-done{ color:var(--forest-soft); background:rgba(34,197,94,.12); border-color:rgba(34,197,94,.35); }
+.pq-state-tag.pq-state-none{ opacity:.6; }
 .tl-wip-summary{
   display:flex; align-items:center; gap:10px; flex-wrap:wrap;
   font-size:11.5px; color:var(--ink-soft); white-space:nowrap;
@@ -2322,17 +2327,27 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
       var prioClass = it.priority ? ('p'+it.priority) : 'pnone';
       var prioLabel = it.priorityLabel || 'Sem prioridade';
       var assigneeHtml = it.assignee ? '<span class="pq-assignee">'+escapeHtml(it.assignee)+'</span>' : '<span class="pq-assignee">—</span>';
-      var stateHtml = pqState.sort === 'status' ? '<span class="pq-state-tag">'+escapeHtml(it.state||'')+'</span>' : '';
+      var stateClass = pqStateClass(it.state);
+      var stateHtml = '<span class="pq-state-tag '+stateClass+'">'+escapeHtml(it.state||'—')+'</span>';
       return '<a class="pq-row" href="'+azureDevOpsUrl(it.id)+'" target="_blank" rel="noopener" title="Abrir #'+it.id+' no Azure DevOps">' +
         '<span class="pq-pos">#'+it.position+'</span>' +
         '<span class="pq-type-icon">'+(PQ_TYPE_ICON[it.type]||'📄')+'</span>' +
         '<span class="pq-idm">#'+it.id+'</span>' +
         '<span class="pq-title-txt">'+escapeHtml(it.title)+'</span>' +
-        stateHtml +
         assigneeHtml +
+        stateHtml +
         '<span class="pq-prio '+prioClass+'">'+escapeHtml(prioLabel)+'</span>' +
       '</a>';
     }).join('');
+  }
+
+  function pqStateClass(state){
+    if(!state) return 'pq-state-none';
+    var s = state.toLowerCase();
+    if(['closed','feito','removed'].indexOf(s) !== -1) return 'pq-state-done';
+    if(['fazendo','doing','in progress','active'].indexOf(s) !== -1) return 'pq-state-doing';
+    if(['a fazer','to do'].indexOf(s) !== -1) return 'pq-state-todo';
+    return 'pq-state-new';
   }
 
   function wirePriorityQueueFilter(){
