@@ -994,14 +994,37 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
 .vr-bar{
   position:absolute; height:26px; border-radius:7px; display:flex; align-items:center; padding:0 10px;
   font:600 11.5px 'Inter'; white-space:nowrap; overflow:visible;
-  cursor:pointer; border:2px solid transparent; box-sizing:border-box;
-  transition:filter .15s ease; text-decoration:none;
+  cursor:grab; border:2px solid transparent; box-sizing:border-box;
+  transition:filter .15s ease; text-decoration:none; user-select:none;
 }
 .vr-bar.vr-bar-done{ color:#fff; box-shadow:0 2px 8px rgba(0,0,0,.45); filter:brightness(0.62) saturate(1.1); }
 .vr-bar.vr-bar-open{ background:transparent; color:var(--ink); }
 .vr-bar:hover{ filter:brightness(1.15); }
 .vr-bar.vr-bar-done:hover{ filter:brightness(0.75) saturate(1.1); }
-.vr-bar span{ position:relative; z-index:1; overflow:hidden; text-overflow:ellipsis; }
+.vr-bar:active{ cursor:grabbing; }
+.vr-bar span{ position:relative; z-index:1; overflow:hidden; text-overflow:ellipsis; pointer-events:none; }
+.vr-bar.vr-bar-dragging{ opacity:.85; z-index:30; filter:brightness(1.25); box-shadow:0 6px 18px rgba(0,0,0,.5); transition:none; }
+.vr-bar.vr-bar-edited{ border-style:dashed; }
+.vr-bar-edited-dot{
+  position:absolute; top:-5px; right:-5px; width:10px; height:10px; border-radius:50%;
+  background:var(--amber); border:2px solid var(--surface); z-index:2;
+}
+.vr-bar-handle{
+  position:absolute; top:0; bottom:0; width:8px; z-index:2; cursor:col-resize;
+}
+.vr-bar-handle-l{ left:-2px; }
+.vr-bar-handle-r{ right:-2px; }
+.vr-bar-handle:hover{ background:rgba(255,255,255,.25); border-radius:4px; }
+.vr-edit-bar{
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  margin-top:10px; padding:8px 12px; background:var(--surface-2); border:1px solid var(--line-strong);
+  border-radius:8px; font-size:12px; color:var(--ink-soft);
+}
+.vr-edit-bar button{
+  font:600 11.5px 'Inter'; color:var(--t-blue); background:transparent; border:1px solid var(--t-blue);
+  padding:5px 10px; border-radius:6px; cursor:pointer;
+}
+.vr-edit-bar button:hover{ background:var(--t-blue-soft); }
 
 </style>
 </head>
@@ -1192,11 +1215,15 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
     <div class="vr-section">
       <div class="vr-header">
         <h3 class="vr-title">🗺️ Roadmap Visual</h3>
-        <p class="vr-sub">Linha do tempo por data real de execução — cada barra vai da <b>Start Date</b> até a <b>Target Date</b> do item no Azure DevOps. A linha vertical marca a data de hoje.</p>
+        <p class="vr-sub">Linha do tempo por data real de execução — cada barra vai da <b>Start Date</b> até a <b>Target Date</b> do item no Azure DevOps. A linha vertical marca a data de hoje. <b>Arraste uma barra</b> para reagendar, ou puxe as bordas para ajustar só o início ou só o fim — o ajuste fica salvo neste navegador (não altera o Azure DevOps automaticamente).</p>
       </div>
       <div class="vr-legend" id="vr-legend"></div>
       <div class="vr-scroll" id="vr-scroll">
         <div class="vr-canvas" id="vr-canvas"></div>
+      </div>
+      <div class="vr-edit-bar" id="vr-edit-bar" style="display:none;">
+        <span id="vr-edit-count"></span>
+        <button type="button" id="vr-reset-all">Descartar todos os ajustes locais</button>
       </div>
     </div>
     <div class="tl-board-wrap">
@@ -2277,6 +2304,26 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
   //  no mesmo estilo do "Roadmap Visual" do outro roadmap.
   // =========================================================
   var VR_TYPE_COLOR = { 'Feature':'var(--t-blue)', 'Solicitação':'var(--t-green)', 'Discovery':'var(--t-orange)' };
+  var VR_OVERRIDES_KEY = 'grcRoadmapDateOverrides_v1';
+  function vrLoadOverrides(){
+    try { return JSON.parse(localStorage.getItem(VR_OVERRIDES_KEY) || '{}'); } catch(e){ return {}; }
+  }
+  function vrSaveOverrides(map){
+    try { localStorage.setItem(VR_OVERRIDES_KEY, JSON.stringify(map)); } catch(e){}
+  }
+  function vrSetOverride(id, startISO, targetISO){
+    var map = vrLoadOverrides();
+    map[id] = { startDate: startISO, targetDate: targetISO };
+    vrSaveOverrides(map);
+  }
+  function vrClearOverride(id){
+    var map = vrLoadOverrides();
+    delete map[id];
+    vrSaveOverrides(map);
+  }
+  function vrClearAllOverrides(){
+    try { localStorage.removeItem(VR_OVERRIDES_KEY); } catch(e){}
+  }
   var VR_LANE_ORDER = ['Feature','Solicitação','Discovery'];
 
   // =========================================================
@@ -2370,8 +2417,17 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
   }
 
   function buildVisualRoadmap(){
+    var vrOverrides = vrLoadOverrides();
     var cards = (TL_CARDS || []).filter(function(c){
       return c.startDate && c.targetDate;
+    }).map(function(c){
+      var ov = vrOverrides[c.id];
+      if(ov){
+        var copy = {}; for(var k in c) copy[k] = c[k];
+        copy.startDate = ov.startDate; copy.targetDate = ov.targetDate; copy._edited = true;
+        return copy;
+      }
+      return c;
     });
     var legend = document.getElementById('vr-legend');
     var canvas = document.getElementById('vr-canvas');
@@ -2420,6 +2476,8 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
       canvas.innerHTML = '<div class="empty-state" style="padding:40px 20px;"><div class="big">Sem itens no período visível</div><div>Nenhum item com datas dentro da janela atual do roadmap.</div></div>';
       return;
     }
+    window._vrCardsById = {};
+    cards.forEach(function(c){ window._vrCardsById[c.id] = c; });
 
     var pxPerMonth = 90;
     var totalMonths = Math.max(2, Math.ceil(monthPos(maxD)) + 1);
@@ -2513,8 +2571,12 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
         var barStyle = 'left:'+left+'px;top:'+(row*rowH)+'px;width:'+width+'px;' +
           (done ? 'background:'+color+';border-color:'+color+';' : 'background:transparent;border-color:'+color+';');
 
-        return '<a class="vr-bar'+(done?' vr-bar-done':' vr-bar-open')+'" href="'+azureDevOpsUrl(c.id)+'" target="_blank" rel="noopener" title="'+escapeHtml(tt)+'" style="'+barStyle+'">' +
+        var editedDot = c._edited ? '<span class="vr-bar-edited-dot" title="Ajustado localmente — clique no × para descartar"></span>' : '';
+        return '<a class="vr-bar'+(done?' vr-bar-done':' vr-bar-open')+(c._edited?' vr-bar-edited':'')+'" href="'+azureDevOpsUrl(c.id)+'" target="_blank" rel="noopener" title="'+escapeHtml(tt)+'" data-id="'+c.id+'" data-type="'+t+'" style="'+barStyle+'">' +
+          '<div class="vr-bar-handle vr-bar-handle-l" data-role="resize-l"></div>' +
           '<span>#'+c.id+' '+escapeHtml(c.title)+'</span>' +
+          '<div class="vr-bar-handle vr-bar-handle-r" data-role="resize-r"></div>' +
+          editedDot +
         '</a>';
       }).join('');
       return '<div class="vr-lane"><div class="vr-lane-head"><span class="dot" style="background:'+color+'"></span>'+(TYPE_LABELS[t]||t)+'<span class="count">'+items.length+'</span></div>' +
@@ -2531,6 +2593,133 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
         (showToday ? '<div class="vr-today-line" style="left:'+todayLeft+'px; height:100%;"></div>' : '') +
         lanesHtml +
       '</div>';
+
+    vrUpdateEditBar(vrOverrides);
+    vrWireBarInteractions(canvas, pxPerMonth, minD, maxD);
+  }
+
+  function vrUpdateEditBar(overrides){
+    var bar = document.getElementById('vr-edit-bar');
+    var countEl = document.getElementById('vr-edit-count');
+    if(!bar || !countEl) return;
+    var n = Object.keys(overrides || {}).length;
+    if(n > 0){
+      bar.style.display = 'flex';
+      countEl.textContent = n + ' item' + (n>1?'s':'') + ' com data ajustada localmente neste navegador (não reflete no Azure DevOps).';
+    } else {
+      bar.style.display = 'none';
+    }
+    if(!bar._wired){
+      bar._wired = true;
+      var resetBtn = document.getElementById('vr-reset-all');
+      if(resetBtn){
+        resetBtn.addEventListener('click', function(){
+          if(!confirm('Descartar todos os ajustes de data feitos localmente no Roadmap Visual?')) return;
+          vrClearAllOverrides();
+          buildVisualRoadmap();
+        });
+      }
+    }
+  }
+
+  function vrWireBarInteractions(canvas, pxPerMonth, minD, maxD){
+    var pxPerDay = pxPerMonth / 30;
+    function toISO(d){
+      return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    }
+    function fromISO(s){ return new Date(s+'T12:00:00'); }
+    function addDays(d, n){ var r = new Date(d.getTime()); r.setDate(r.getDate()+n); return r; }
+
+    canvas.querySelectorAll('.vr-bar').forEach(function(bar){
+      var id = bar.getAttribute('data-id');
+      var mode = null; // 'move' | 'resize-l' | 'resize-r'
+      var startPointerX = 0;
+      var startLeft = 0, startWidth = 0;
+      var moved = false;
+      var startDateISO = null, targetDateISO = null;
+
+      // recupera as datas atuais a partir do card renderizado (via lookup global)
+      function currentCard(){
+        return (window._vrCardsById || {})[id];
+      }
+
+      function onPointerDown(e){
+        if(e.button !== undefined && e.button !== 0) return;
+        var role = e.target.getAttribute && e.target.getAttribute('data-role');
+        mode = role === 'resize-l' ? 'resize-l' : (role === 'resize-r' ? 'resize-r' : 'move');
+        startPointerX = e.clientX;
+        startLeft = parseFloat(bar.style.left) || 0;
+        startWidth = parseFloat(bar.style.width) || 0;
+        moved = false;
+        var c = currentCard();
+        if(c){ startDateISO = c.startDate; targetDateISO = c.targetDate; }
+        bar.setPointerCapture && bar.setPointerCapture(e.pointerId);
+        document.addEventListener('pointermove', onPointerMove);
+        document.addEventListener('pointerup', onPointerUp);
+      }
+
+      function onPointerMove(e){
+        var dx = e.clientX - startPointerX;
+        if(Math.abs(dx) > 3) moved = true;
+        if(!moved) return;
+        bar.classList.add('vr-bar-dragging');
+        var deltaDays = Math.round(dx / pxPerDay);
+        if(mode === 'move'){
+          bar.style.left = (startLeft + deltaDays*pxPerDay) + 'px';
+        } else if(mode === 'resize-r'){
+          var newW = Math.max(pxPerDay, startWidth + deltaDays*pxPerDay);
+          bar.style.width = newW + 'px';
+        } else if(mode === 'resize-l'){
+          var newLeft = startLeft + deltaDays*pxPerDay;
+          var newW2 = Math.max(pxPerDay, startWidth - deltaDays*pxPerDay);
+          bar.style.left = newLeft + 'px';
+          bar.style.width = newW2 + 'px';
+        }
+      }
+
+      function onPointerUp(e){
+        document.removeEventListener('pointermove', onPointerMove);
+        document.removeEventListener('pointerup', onPointerUp);
+        bar.classList.remove('vr-bar-dragging');
+        if(!moved || !startDateISO || !targetDateISO){ mode = null; return; }
+        e.preventDefault();
+        var dx = e.clientX - startPointerX;
+        var deltaDays = Math.round(dx / pxPerDay);
+        var s = fromISO(startDateISO), t = fromISO(targetDateISO);
+        var newS = s, newT = t;
+        if(mode === 'move'){
+          newS = addDays(s, deltaDays); newT = addDays(t, deltaDays);
+        } else if(mode === 'resize-r'){
+          newT = addDays(t, deltaDays);
+          if(newT <= newS) newT = addDays(newS, 1);
+        } else if(mode === 'resize-l'){
+          newS = addDays(s, deltaDays);
+          if(newS >= newT) newS = addDays(newT, -1);
+        }
+        vrSetOverride(id, toISO(newS), toISO(newT));
+        mode = null;
+        buildVisualRoadmap();
+      }
+
+      bar.addEventListener('pointerdown', onPointerDown);
+      bar.addEventListener('click', function(e){
+        if(moved){ e.preventDefault(); }
+      });
+
+      var dot = bar.querySelector('.vr-bar-edited-dot');
+      if(dot){
+        dot.style.cursor = 'pointer';
+        dot.addEventListener('pointerdown', function(e){ e.stopPropagation(); });
+        dot.addEventListener('click', function(e){
+          e.preventDefault(); e.stopPropagation();
+          vrClearOverride(id);
+          buildVisualRoadmap();
+        });
+        dot.textContent = '×';
+        dot.style.display = 'flex'; dot.style.alignItems = 'center'; dot.style.justifyContent = 'center';
+        dot.style.fontSize = '9px'; dot.style.color = '#1a1a1a'; dot.style.lineHeight = '1';
+      }
+    });
   }
 
 
