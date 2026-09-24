@@ -3125,11 +3125,27 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
       '</div>';
     }).join('');
 
+    // Conecta com a tendência mensal ao lado: mostra a diferença entre o
+    // último ponto fechado da série e o WIP vivo agora, já que o mês
+    // corrente ainda está em curso (a série de tendência sempre fecha
+    // com um valor parcial até o refresh seguinte).
+    var monthSeries = (FLOW_DATA.gran && FLOW_DATA.gran.month && FLOW_DATA.gran.month.wip_series) || [];
+    var lastPoint = monthSeries.length ? monthSeries[monthSeries.length-1] : null;
+    var connectNote = '';
+    if(lastPoint && lastPoint.wip !== total){
+      var diff = total - lastPoint.wip;
+      connectNote = '<div class="fm-wip-now-note" style="margin-top:6px;">' +
+        'A tendência ao lado fecha o mês corrente com <b>'+lastPoint.wip+'</b> itens (parcial, ainda em curso). ' +
+        'O WIP vivo agora já soma <b>'+total+'</b> — '+(diff>0? '+'+diff+' desde o último fechamento':diff+' desde o último fechamento')+'.' +
+      '</div>';
+    }
+
     wrap.innerHTML =
       '<div class="fm-mini-title">WIP atual (ativos agora)</div>' +
       '<div class="fm-wip-now-total">'+total+'<small>itens de execução em andamento</small></div>' +
       rows +
-      '<div class="fm-wip-now-note">Considera apenas itens de execução (Melhoria, User Story, Bug, Spike) — Feature e Solicitação são containers e ficam fora da conta.</div>';
+      '<div class="fm-wip-now-note">Considera apenas itens de execução (Melhoria, User Story, Bug, Spike) — Feature e Solicitação são containers e ficam fora da conta.</div>' +
+      connectNote;
   }
 
   function fmRenderKpis(){
@@ -3320,8 +3336,13 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
     }
 
     var dots = series.map(function(s,i){
-      return '<circle cx="'+xAt(i)+'" cy="'+yAt(s.wip)+'" r="3.5" fill="var(--forest)" stroke="var(--cream-card)" stroke-width="1.5">' +
-        '<title>'+fmPeriodLabel(s.period)+': WIP '+s.wip+'</title></circle>';
+      var isLast = i === series.length - 1;
+      var isCurrentMonth = gran === 'month' && isLast;
+      var fill = isCurrentMonth ? 'var(--amber)' : 'var(--forest)';
+      var r = isCurrentMonth ? 5 : 3.5;
+      var titleText = fmPeriodLabel(s.period)+': WIP '+s.wip+(isCurrentMonth ? ' (mês em curso — parcial)' : '');
+      return '<circle cx="'+xAt(i)+'" cy="'+yAt(s.wip)+'" r="'+r+'" fill="'+fill+'" stroke="var(--cream-card)" stroke-width="1.5">' +
+        '<title>'+titleText+'</title></circle>';
     }).join('');
 
     var labels = series.map(function(s,i){
