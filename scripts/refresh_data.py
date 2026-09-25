@@ -768,10 +768,13 @@ def build_type_map():
     for it in items:
         f = it["fields"]
         t = f["System.WorkItemType"]
+        state = f["System.State"]
         if t not in counts:
             continue
+        if state == "Removed":
+            continue  # item cancelado/removido do board — nao entra na conta (nao e "aberto" nem "concluido")
         counts[t]["total"] += 1
-        if f["System.State"] in RESOLVED:
+        if state in {"Closed", "Feito", "Resolved"}:
             counts[t]["done"] += 1
         else:
             counts[t]["open"] += 1
