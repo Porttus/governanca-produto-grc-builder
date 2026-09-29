@@ -40,6 +40,10 @@ RELEVANT_TREE_TYPES = "'Epic','Discovery','Feature','Solicitação','Melhoria','
 FLOW_TYPES_WIQL = "'Feature','Solicitação','Melhoria','User Story','Bug','Spike','Incidente','Iniciativas'"
 RESOLVED = {"Closed", "Feito", "Removed"}
 OPEN_STATES = {"New", "Backlog"}  # estados de "ainda não iniciado" — nem WIP, nem concluído
+# Estados anteriores a "Análise Funcional" no fluxo — ainda não entraram em
+# investigação/execução de verdade (New, Backlog, fila de refinamento).
+# WIP "agora" conta a partir de Análise Funcional (inclusive) em diante.
+PRE_ANALYSIS_STATES = {"New", "Backlog", "Aguardando Refinamento", "Em refinamento"}
 FM_FLOW_TYPES = ["Melhoria", "User Story", "Bug", "Spike", "Incidente", "Iniciativas"]
 FM_ALL_TYPES = ["Feature", "Solicitação", "Melhoria", "User Story", "Bug", "Spike", "Incidente", "Iniciativas"]
 EXCLUDE_FE = {"Feature", "Solicitação", "Discovery"}
@@ -485,6 +489,7 @@ def build_flow_metrics():
 
     def compute_bundle(period_keys, key_fn, end_fn):
         tbt = {p: {t: 0 for t in FM_FLOW_TYPES} for p in period_keys}
+        cbt = {p: {t: 0 for t in FM_FLOW_TYPES} for p in period_keys}  # criados por tipo (inclui New)
         bc = {p: 0 for p in period_keys}
         bd = {p: 0 for p in period_keys}
         for r in records:
@@ -501,6 +506,13 @@ def build_flow_metrics():
                 pk = key_fn(parse_dt(r["end_date"]))
                 if pk in tbt:
                     tbt[pk][r["type"]] += 1
+            # Criados por tipo, no periodo de criacao -- conta TODOS os itens
+            # (inclusive os que ainda estao em New hoje), para dar visao de
+            # entrada/demanda, nao so de conclusao.
+            if r["created"] and in_window(r["created"]) and r["type"] in FM_FLOW_TYPES:
+                pk = key_fn(parse_dt(r["created"]))
+                if pk in cbt:
+                    cbt[pk][r["type"]] += 1
 
         def wip_at(dt_end):
             c = 0
@@ -514,7 +526,7 @@ def build_flow_metrics():
             return c
 
         wip_series = [{"period": p, "wip": wip_at(min(end_fn(p), NOW))} for p in period_keys]
-        return {"periods": period_keys, "throughput_by_type": tbt, "bugs_created": bc,
+        return {"periods": period_keys, "throughput_by_type": tbt, "created_by_type": cbt, "bugs_created": bc,
                 "bugs_delivered": bd, "wip_series": wip_series}
 
     print("  Calculando granularidade semanal...")
@@ -573,22 +585,17 @@ def build_flow_metrics():
     # não depende de ActivatedDate estar preenchido, já que nem todo fluxo
     # customizado do processo garante isso (ex: Spikes em "Análise Técnica"
     # sem essa data setada, mas visivelmente em andamento no board).
-    # WIP "agora" (ao vivo) — usa o MESMO critério da série histórica (wip_at):
-    # item ativado (Microsoft.VSTS.Common.ActivatedDate preenchida) e ainda não
-    # resolvido. Isso elimina a divergência que existia antes, quando o WIP ao
-    # vivo era contado por ESTADO (excluindo New/Backlog) enquanto a tendência
-    # mensal era contada por DATA de ativação — dois critérios incompatíveis
-    # que geravam números que não batiam entre si.
-    wip_now = [r for r in records if not r["resolved"] and r["activated"] and r["type"] in FM_FLOW_TYPES]
+    # WIP "agora" (ao vivo): a partir de "Análise Funcional" em diante (inclusive),
+    # nao resolvido. Estados anteriores (New, Backlog, fila de refinamento) ficam
+    # de fora — ainda nao entraram em investigacao/execucao de verdade.
+    wip_now = [r for r in records if not r["resolved"] and r["state"] not in PRE_ANALYSIS_STATES and r["type"] in FM_FLOW_TYPES]
     wip_now_by_type = dict(Counter(r["type"] for r in wip_now))
     wip_now_total = len(wip_now)
 
-    # Itens que já saíram do backlog (estado != New/Backlog) mas ainda não têm
-    # ActivatedDate preenchida — não contam como WIP "ativo" pelo critério acima,
-    # mas tambem nao sao mais backlog puro. Registrado à parte para nao ficarem
-    # invisiveis no dashboard.
-    wip_pre_activation = [r for r in records if not r["resolved"] and not r["activated"]
-                           and r["state"] not in OPEN_STATES and r["type"] in FM_FLOW_TYPES]
+    # Itens ainda na fila de refinamento (antes de Analise Funcional) mas ja fora
+    # do backlog puro (New/Backlog) — ficam registrados a parte, nao contam WIP.
+    wip_pre_activation = [r for r in records if not r["resolved"] and r["state"] not in OPEN_STATES
+                           and r["state"] in PRE_ANALYSIS_STATES and r["type"] in FM_FLOW_TYPES]
     wip_pre_activation_total = len(wip_pre_activation)
     wip_pre_activation_by_type = dict(Counter(r["type"] for r in wip_pre_activation))
 
