@@ -502,7 +502,10 @@ def build_flow_metrics():
                     pk = key_fn(parse_dt(r["end_date"]))
                     if pk in bd:
                         bd[pk] += 1
-            if r["resolved"] and r["end_date"] and in_window(r["end_date"]) and r["type"] in FM_FLOW_TYPES:
+            # Throughput conta especificamente o estado "Closed" (nao "Feito" nem
+            # "Removed") -- um item removido nao foi entregue, e "Feito" e um
+            # estado terminal usado só por Incidente/Iniciativas historicamente.
+            if r["state"] == "Closed" and r["end_date"] and in_window(r["end_date"]) and r["type"] in FM_FLOW_TYPES:
                 pk = key_fn(parse_dt(r["end_date"]))
                 if pk in tbt:
                     tbt[pk][r["type"]] += 1
