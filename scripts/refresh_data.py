@@ -408,12 +408,23 @@ def build_flow_metrics():
     items = batch_fetch(ids, fields)
     print(f"  Total de itens: {len(items)}")
 
+    # Estados terminais que representam entrega real (Kanban: "Done" no fim do
+    # fluxo) -- tipos diferentes usam rotulos diferentes para o mesmo conceito
+    # (Closed é o padrao; Incidente e Iniciativas usam Feito historicamente).
+    # "Removed" e tratado a parte: um item cancelado nunca atravessou o fluxo
+    # ate a entrega, entao o Kanban nao conta esse item em Cycle Time, Lead
+    # Time, Throughput nem WIP -- ele e excluido da populacao de fluxo inteira,
+    # nao "resolvido".
+    FLOW_DONE_STATES = {"Closed", "Feito"}
+
     records = []
     for it in items:
         f = it["fields"]
         t = f["System.WorkItemType"]
         state = f.get("System.State")
-        resolved = state in RESOLVED
+        if state == "Removed":
+            continue  # trabalho cancelado -- fora da populacao de fluxo (Kanban)
+        resolved = state in FLOW_DONE_STATES
         created = f.get("System.CreatedDate")
         activated = f.get("Microsoft.VSTS.Common.ActivatedDate")
         closed = f.get("Microsoft.VSTS.Common.ClosedDate")
@@ -502,10 +513,13 @@ def build_flow_metrics():
                     pk = key_fn(parse_dt(r["end_date"]))
                     if pk in bd:
                         bd[pk] += 1
-            # Throughput conta especificamente o estado "Closed" (nao "Feito" nem
-            # "Removed") -- um item removido nao foi entregue, e "Feito" e um
-            # estado terminal usado só por Incidente/Iniciativas historicamente.
-            if r["state"] == "Closed" and r["end_date"] and in_window(r["end_date"]) and r["type"] in FM_FLOW_TYPES:
+            # Throughput: conta itens que atingiram um estado terminal de
+            # entrega (Closed ou Feito, conforme o fluxo de cada tipo) -- ja
+            # exclui Removed porque esses itens nem entram em "records" (ver
+            # filtro no carregamento). Kanban: throughput = itens que
+            # concluiram o fluxo, e "concluir" nao depende do rotulo do
+            # estado, e sim de ter chegado ao fim do fluxo daquele tipo.
+            if r["resolved"] and r["end_date"] and in_window(r["end_date"]) and r["type"] in FM_FLOW_TYPES:
                 pk = key_fn(parse_dt(r["end_date"]))
                 if pk in tbt:
                     tbt[pk][r["type"]] += 1
