@@ -602,19 +602,13 @@ def build_flow_metrics():
     # não depende de ActivatedDate estar preenchido, já que nem todo fluxo
     # customizado do processo garante isso (ex: Spikes em "Análise Técnica"
     # sem essa data setada, mas visivelmente em andamento no board).
-    # WIP "agora" (ao vivo): a partir de "Análise Funcional" em diante (inclusive),
-    # nao resolvido. Estados anteriores (New, Backlog, fila de refinamento) ficam
-    # de fora — ainda nao entraram em investigacao/execucao de verdade.
-    wip_now = [r for r in records if not r["resolved"] and r["state"] not in PRE_ANALYSIS_STATES and r["type"] in FM_FLOW_TYPES]
+    # WIP "agora" (ao vivo): TUDO que está no board e ainda não foi entregue —
+    # desde New até qualquer estado de execução (Em Teste, Aguardando PR etc.),
+    # excluindo apenas os estados terminais (Closed/Feito, já fora de "records"
+    # porque "resolved" já filtra isso) e os removidos (já excluídos na origem).
+    wip_now = [r for r in records if not r["resolved"] and r["type"] in FM_FLOW_TYPES]
     wip_now_by_type = dict(Counter(r["type"] for r in wip_now))
     wip_now_total = len(wip_now)
-
-    # Itens ainda na fila de refinamento (antes de Analise Funcional) mas ja fora
-    # do backlog puro (New/Backlog) — ficam registrados a parte, nao contam WIP.
-    wip_pre_activation = [r for r in records if not r["resolved"] and r["state"] not in OPEN_STATES
-                           and r["state"] in PRE_ANALYSIS_STATES and r["type"] in FM_FLOW_TYPES]
-    wip_pre_activation_total = len(wip_pre_activation)
-    wip_pre_activation_by_type = dict(Counter(r["type"] for r in wip_pre_activation))
 
     # ---- capacity (Previsibilidade) ----
     cycle_avg = overall["cycle_time"]["avg"]
@@ -726,9 +720,7 @@ def build_flow_metrics():
         "flow_efficiency": flow_efficiency, "throughput_avg_per_month": throughput_avg_per_week,
         "cycle_time_histogram": histogram, "wip_aging_histogram": aging_hist, "wip_aging_top": wip_aging_top,
         "blocked_items": blocked_items, "blocked_count": len(blocked_items),
-        "wip_now_total": wip_now_total, "wip_now_by_type": wip_now_by_type,
-        "wip_pre_activation_total": wip_pre_activation_total, "wip_pre_activation_by_type": wip_pre_activation_by_type,
-        "bugs_notes": bugs_notes,
+        "wip_now_total": wip_now_total, "wip_now_by_type": wip_now_by_type, "bugs_notes": bugs_notes,
         "cycle_scatter": scatter, "capacity": capacity, "developer_metrics": developer_metrics,
         "dev_efficiency": gran_dev["week"], "dev_story_points": dev_story_points,
         "gran": gran, "gran_dev": gran_dev,
