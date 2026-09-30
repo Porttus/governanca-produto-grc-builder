@@ -598,15 +598,14 @@ def build_flow_metrics():
                      for r in blocked]
 
     # ---- WIP atual ----
-    # WIP real = não concluído e já saiu do estado inicial (New/Backlog) —
-    # não depende de ActivatedDate estar preenchido, já que nem todo fluxo
-    # customizado do processo garante isso (ex: Spikes em "Análise Técnica"
-    # sem essa data setada, mas visivelmente em andamento no board).
-    # WIP "agora" (ao vivo): TUDO que está no board e ainda não foi entregue —
-    # desde New até qualquer estado de execução (Em Teste, Aguardando PR etc.),
-    # excluindo apenas os estados terminais (Closed/Feito, já fora de "records"
-    # porque "resolved" já filtra isso) e os removidos (já excluídos na origem).
-    wip_now = [r for r in records if not r["resolved"] and r["type"] in FM_FLOW_TYPES]
+    # WIP "agora" (ao vivo): faixa explícita do fluxo — de "Análise Funcional"
+    # até "Em Teste" (inclusive nas duas pontas). Fora dessa faixa: New,
+    # Backlog, fila de refinamento (ainda não comprometido) de um lado, e
+    # Aguardando PR/Fazendo do outro lado não entram; Resolved/Closed/Feito
+    # e Removed também ficam de fora (não é WIP, é entrega ou cancelamento).
+    WIP_RANGE_STATES = {"Análise Funcional", "Análise Técnica", "Aguardando Desenvolvimento",
+                         "Em Desenvolvimento", "Aguardando Teste", "Em teste"}
+    wip_now = [r for r in records if r["state"] in WIP_RANGE_STATES and r["type"] in FM_FLOW_TYPES]
     wip_now_by_type = dict(Counter(r["type"] for r in wip_now))
     wip_now_total = len(wip_now)
 
