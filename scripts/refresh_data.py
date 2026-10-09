@@ -905,31 +905,6 @@ def replace_json_block(html, script_id, new_data):
     return html[:m.start()] + m.group(1) + new_json + m.group(3) + html[m.end():]
 
 
-def sync_roadmap_history(html, predictability):
-    """Mantem a base historica da 'Nova estimativa' (Visao Estrategica) em dia.
-
-    O roadmap embutido (base64) usa HIST_DELAY_DAYS = mediana de dias que as
-    entregas passaram da meta. Aqui o valor e reescrito com o resultado mais
-    recente de build_predictability(). Se nao houver amostra, nada muda.
-    """
-    median = (predictability or {}).get("median_delay_days")
-    n = (predictability or {}).get("n_items")
-    if median is None or not n:
-        return html
-    pat = re.compile(r'(<script id="strategy-embed-b64" type="text/plain">)(.*?)(</script>)', re.DOTALL)
-    m = pat.search(html)
-    if not m:
-        return html
-    embed = base64.b64decode(m.group(2)).decode("utf-8")
-    new_embed, k = re.subn(r"const HIST_DELAY_DAYS = \d+; // n=\d+",
-                           f"const HIST_DELAY_DAYS = {int(median)}; // n={int(n)}", embed)
-    if k != 1:
-        print("AVISO: constante HIST_DELAY_DAYS nao encontrada no roadmap embutido; base historica nao atualizada.")
-        return html
-    b64 = base64.b64encode(new_embed.encode("utf-8")).decode("ascii")
-    return html[:m.start(2)] + b64 + html[m.end(2):]
-
-
 def main():
     print(f"=== Refresh iniciado em {NOW.isoformat()} ===")
     if not os.path.exists(INDEX_PATH):
@@ -961,14 +936,13 @@ def main():
     html = replace_json_block(html, "type-map-data", type_map)
     html = replace_json_block(html, "activity-composition-data", activity_composition)
     html = replace_json_block(html, "predictability-data", predictability)
-    html = sync_roadmap_history(html, predictability)
 
     with open(INDEX_PATH, "w", encoding="utf-8") as fh:
         fh.write(html)
 
     print("=== Refresh concluído com sucesso. index.html atualizado. ===")
-    print("NOTA: os itens da aba 'Visão Estratégica' (roadmap embutido) seguem com o snapshot manual; "
-          "apenas a base historica da 'Nova estimativa' (HIST_DELAY_DAYS) e atualizada por este script.")
+    print("NOTA: a aba 'Visão Estratégica' (roadmap embutido com itens de Discovery) "
+          "não é atualizada automaticamente por este script — segue com o snapshot manual mais recente.")
 
 
 if __name__ == "__main__":
