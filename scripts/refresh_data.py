@@ -599,12 +599,13 @@ def build_flow_metrics():
 
     # ---- WIP atual ----
     # WIP "agora" (ao vivo): faixa explícita do fluxo — de "Análise Funcional"
-    # até "Em Teste" (inclusive nas duas pontas). Fora dessa faixa: New,
-    # Backlog, fila de refinamento (ainda não comprometido) de um lado, e
-    # Aguardando PR/Fazendo do outro lado não entram; Resolved/Closed/Feito
-    # e Removed também ficam de fora (não é WIP, é entrega ou cancelamento).
+    # até "Resolved" (inclusive nas duas pontas), incluindo Aguardando PR e
+    # Fazendo. Fora dessa faixa: New, Backlog e fila de refinamento (ainda não
+    # comprometido) de um lado; Closed/Feito (entrega) e Removed
+    # (cancelamento) do outro.
     WIP_RANGE_STATES = {"Análise Funcional", "Análise Técnica", "Aguardando Desenvolvimento",
-                         "Em Desenvolvimento", "Aguardando Teste", "Em teste"}
+                         "Em Desenvolvimento", "Aguardando Teste", "Em teste",
+                         "Aguardando PR", "Fazendo", "Resolved"}
     wip_now = [r for r in records if r["state"] in WIP_RANGE_STATES and r["type"] in FM_FLOW_TYPES]
     wip_now_by_type = dict(Counter(r["type"] for r in wip_now))
     wip_now_total = len(wip_now)
