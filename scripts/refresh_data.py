@@ -825,38 +825,43 @@ def build_type_map():
 
 
 # =========================================================
-#  PARTE 4c — Composição por frente de trabalho (Backlog -> Em teste)
-#  Regra: itens de Melhoria/User Story/Bug/Spike CRIADOS entre
-#  janeiro/2026 e hoje, já triados (estado a partir de "Backlog",
-#  excluindo "New" que ainda não entrou no board) e ainda não
-#  finalizados (exclui Resolved/Closed/Removed).
+#  PARTE 4c — Composição por frente de trabalho
+#  Regra: MESMA base do WIP atual — itens em estados de "Análise Funcional"
+#  até "Resolved" (inclui Aguardando PR e Fazendo), sem filtro de data.
+#  Incidente entra na frente de Correção junto com Bug, para o total bater
+#  com o WIP atual.
 # =========================================================
+WIP_STATES_ALL = ["Análise Funcional", "Análise Técnica", "Aguardando Desenvolvimento",
+                  "Em Desenvolvimento", "Aguardando Teste", "Em teste",
+                  "Aguardando PR", "Fazendo", "Resolved"]
+
 def build_activity_composition():
-    print("Buscando Composição por Frente de Trabalho (Backlog->Em teste, jan/2026-hoje)...")
+    print("Buscando Composição por Frente de Trabalho (mesma base do WIP atual)...")
     COMP_TYPES = ['Melhoria', 'User Story', 'Bug', 'Spike']
-    types_wiql = ",".join(f"'{t}'" for t in COMP_TYPES)
+    BUCKET = {'Melhoria': 'Melhoria', 'User Story': 'User Story', 'Bug': 'Bug',
+              'Incidente': 'Bug', 'Spike': 'Spike'}
+    types_wiql = ",".join(f"'{t}'" for t in FM_FLOW_TYPES)
+    states_wiql = ",".join(f"'{s}'" for s in WIP_STATES_ALL)
     q = (f"SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project "
          f"AND [System.WorkItemType] IN ({types_wiql}) "
-         f"AND [System.CreatedDate] >= '2026-01-01'")
+         f"AND [System.State] IN ({states_wiql})")
     ids = [wi["id"] for wi in wiql(q).get("workItems", [])]
-    fields = ["System.Id", "System.WorkItemType", "System.State"]
-    items = batch_fetch(ids, fields)
+    items = batch_fetch(ids, ["System.Id", "System.WorkItemType", "System.State"])
 
-    EXCLUDED_STATES = {"New", "Resolved", "Closed", "Removed"}
     counts = {t: 0 for t in COMP_TYPES}
+    unmapped = Counter()
     for it in items:
-        f = it["fields"]
-        t = f["System.WorkItemType"]
-        s = f["System.State"]
-        if t in counts and s not in EXCLUDED_STATES:
-            counts[t] += 1
+        t = it["fields"]["System.WorkItemType"]
+        b = BUCKET.get(t)
+        if b: counts[b] += 1
+        else: unmapped[t] += 1
+    if unmapped:
+        print(f"  AVISO: tipos no WIP sem frente na composição: {dict(unmapped)}")
 
     total = sum(counts.values())
-    result = {}
-    for t in COMP_TYPES:
-        result[t] = {"count": counts[t], "pct": round(100 * counts[t] / total) if total else 0}
-    print(f"  Total em andamento (Backlog->Em teste, jan/2026-hoje): {total} — {result}")
-    return {"items": result, "total": total, "period_label": "jan/2026 - hoje"}
+    result = {t: {"count": counts[t], "pct": round(100 * counts[t] / total) if total else 0} for t in COMP_TYPES}
+    print(f"  Total em andamento (base do WIP atual): {total} — {result}")
+    return {"items": result, "total": total, "period_label": "Análise Funcional até Resolved"}
 
 
 def build_priority_queue():
