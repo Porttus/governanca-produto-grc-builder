@@ -826,25 +826,20 @@ def build_type_map():
 
 # =========================================================
 #  PARTE 4c — Composição por frente de trabalho
-#  Regra: MESMA base do WIP atual — itens em estados de "Análise Funcional"
-#  até "Resolved" (inclui Aguardando PR e Fazendo), sem filtro de data.
-#  Incidente entra na frente de Correção junto com Bug, para o total bater
-#  com o WIP atual.
+#  Regra: todo item aberto no fluxo, de "New" até "Resolved" (inclui
+#  Backlog, refinamento, Aguardando PR e Fazendo), sem filtro de data.
+#  Ficam fora apenas Closed/Feito (entregue) e Removed (cancelado).
+#  Incidente entra na frente de Correção junto com Bug.
 # =========================================================
-WIP_STATES_ALL = ["Análise Funcional", "Análise Técnica", "Aguardando Desenvolvimento",
-                  "Em Desenvolvimento", "Aguardando Teste", "Em teste",
-                  "Aguardando PR", "Fazendo", "Resolved"]
-
 def build_activity_composition():
-    print("Buscando Composição por Frente de Trabalho (mesma base do WIP atual)...")
+    print("Buscando Composição por Frente de Trabalho (New até Resolved)...")
     COMP_TYPES = ['Melhoria', 'User Story', 'Bug', 'Spike']
     BUCKET = {'Melhoria': 'Melhoria', 'User Story': 'User Story', 'Bug': 'Bug',
               'Incidente': 'Bug', 'Spike': 'Spike'}
     types_wiql = ",".join(f"'{t}'" for t in FM_FLOW_TYPES)
-    states_wiql = ",".join(f"'{s}'" for s in WIP_STATES_ALL)
     q = (f"SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project "
          f"AND [System.WorkItemType] IN ({types_wiql}) "
-         f"AND [System.State] IN ({states_wiql})")
+         f"AND [System.State] NOT IN ('Closed','Feito','Removed')")
     ids = [wi["id"] for wi in wiql(q).get("workItems", [])]
     items = batch_fetch(ids, ["System.Id", "System.WorkItemType", "System.State"])
 
@@ -860,8 +855,8 @@ def build_activity_composition():
 
     total = sum(counts.values())
     result = {t: {"count": counts[t], "pct": round(100 * counts[t] / total) if total else 0} for t in COMP_TYPES}
-    print(f"  Total em andamento (base do WIP atual): {total} — {result}")
-    return {"items": result, "total": total, "period_label": "Análise Funcional até Resolved"}
+    print(f"  Total em andamento (New até Resolved): {total} — {result}")
+    return {"items": result, "total": total, "period_label": "New até Resolved"}
 
 
 def build_priority_queue():
