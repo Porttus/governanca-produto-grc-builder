@@ -252,6 +252,9 @@ body{
 .io-k{font-size:11.5px;color:rgba(232,234,244,.55)}
 .io-k b{color:#F3F5FA;font-weight:600}
 .pv-w.io-w{height:175px}
+[data-tip]{cursor:default}
+.pv-wb:hover i,.ca-sp i:hover,.em-mini:hover,.em-seg:hover{filter:brightness(1.25)}
+.ca-r:hover{background:rgba(255,255,255,.03)}
 /* ================= TOOLBAR ================= */
 .toolbar{
   position:sticky; top:0; z-index:30;
@@ -2140,7 +2143,7 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
     var bar = D.atual.map(function(s,i){
       var w = s[1]; if(w<=0) return '';
       var lbl = w>=4 ? Math.round(w)+'%' : '';
-      return '<div class="em-seg" style="width:'+w+'%;background:'+COL[i]+'">'+lbl+'</div>';
+      return '<div class="em-seg" data-tip="<b>'+s[0]+'</b><br>'+String(s[1]).replace('.',',')+'% do esforço em '+D.mes+'" style="width:'+w+'%;background:'+COL[i]+'">'+lbl+'</div>';
     }).join('');
     var leg = D.atual.map(function(s,i){
       var v = s[1]<1 ? '<1%' : Math.round(s[1])+'%';
@@ -2150,7 +2153,7 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
       return '<div class="em-card" style="border-color:'+COL[m[3]]+'"><div class="em-tag" style="color:'+COL[m[3]]+'">'+m[0]+'</div><div class="em-head">'+m[1]+'</div><div class="em-sub">'+m[2]+'</div></div>';
     }).join('');
     var tr = D.tend.map(function(r){
-      return '<div class="em-row"><span>'+r[0]+'</span><div class="em-mini">'+r[1].map(function(x,i){return x>0?'<i style="width:'+x+'%;background:'+COL[i]+'"></i>':'';}).join('')+'</div></div>';
+      var NM=['Inovação','Evolução','Correção','Sem dono']; return '<div class="em-row"><span>'+r[0]+'</span><div class="em-mini" data-tip="<b>'+r[0]+'</b><br>'+r[1].map(function(x,i){return NM[i]+': '+String(x).replace('.',',')+'%';}).join('<br>')+'">'+r[1].map(function(x,i){return x>0?'<i style="width:'+x+'%;background:'+COL[i]+'"></i>':'';}).join('')+'</div></div>';
     }).join('');
     el.innerHTML =
       '<div class="mix-title">Onde foi o esforço do time em '+D.mes+' <span class="mix-note">— '+D.fonte+'</span></div>' +
@@ -2173,8 +2176,8 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
     var ins = '<div class="ca-ins"><div class="ca-big">'+s3+'%</div><div class="ca-txt">da correção está concentrada em 3 áreas<small>'+nomes+'</small></div><div class="ca-q"><b>'+CA.n_items+'</b> itens de correção<br><b>'+CA.identified_pct+'%</b> com área identificada</div></div>';
     var hd = '<div class="ca-h"><span>Área do produto</span><span>Participação · '+CA.period+'</span><span class="r">%</span><span class="c">'+CA.months.join(' · ')+'</span><span class="r">Itens</span></div>';
     var rows = R.map(function(r,i){
-      var sp = r.monthly.map(function(v){return '<i style="height:'+Math.max(2,v/spMax*22)+'px"></i>';}).join('');
-      return '<div class="ca-r '+(i<3?'top':'rest')+'"><span class="ca-n">'+r.area+'</span><div class="ca-tr"><i style="width:'+(r.pct/mx*100)+'%"></i></div><span class="ca-p">'+(r.pct<1?'&lt;1':Math.round(r.pct))+'%</span><div class="ca-sp">'+sp+'</div><span class="ca-it">'+r.items+'</span></div>';
+      var sp = r.monthly.map(function(v,j){return '<i data-tip="<b>'+r.area+' · '+CA.months[j]+'</b><br>'+String(v).replace('.',',')+'% da Correção no mês" style="height:'+Math.max(2,v/spMax*22)+'px"></i>';}).join('');
+      return '<div class="ca-r '+(i<3?'top':'rest')+'" data-tip="<b>'+r.area+'</b><br>'+String(r.pct).replace('.',',')+'% do esforço de Correção ('+CA.period+')<br>'+r.items+' itens<br>'+CA.months.map(function(m,j){return m+': '+String(r.monthly[j]).replace('.',',')+'%';}).join(' · ')+'"><span class="ca-n">'+r.area+'</span><div class="ca-tr"><i style="width:'+(r.pct/mx*100)+'%"></i></div><span class="ca-p">'+(r.pct<1?'&lt;1':Math.round(r.pct))+'%</span><div class="ca-sp">'+sp+'</div><span class="ca-it">'+r.items+'</span></div>';
     }).join('');
     var left = '<div class="pv-box"><div class="pv-hd"><span class="pv-t">Correção por área do produto</span><span class="pv-s">% do esforço de Correção · últimos 3 meses fechados</span></div>'+ins+hd+rows+
       '<div class="pv-ft"><span>Área identificada pelo início do título (padrão Área &gt; Tela &gt; Problema)</span><span>Services = itens técnicos sem tela</span></div></div>';
@@ -2183,7 +2186,7 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
     var NOMES = { 'Bug':'Bugs', 'Melhoria':'Melhorias' };
     var blocks = TY.map(function(t){
       var saldo = t['in'] - t.out;
-      var bars = t.weeks.map(function(w){ return '<div class="pv-wb"><i style="height:'+(w[0]/wmax*100)+'%;background:#3987e5"></i><i style="height:'+(w[1]/wmax*100)+'%;background:#d95926"></i></div>'; }).join('');
+      var bars = t.weeks.map(function(w,i){ return '<div class="pv-wb" data-tip="<b>'+(NOMES[t.type]||t.type)+' · semana de '+L[i]+'</b><br>Começaram: '+w[0]+'<br>Concluídos: '+w[1]+'<br>Saldo: '+((w[0]-w[1])>0?'+':'')+(w[0]-w[1])+'"><i style="height:'+(w[0]/wmax*100)+'%;background:#3987e5"></i><i style="height:'+(w[1]/wmax*100)+'%;background:#d95926"></i></div>'; }).join('');
       return '<div class="io-blk"><div class="io-hd"><span class="io-n">'+(NOMES[t.type]||t.type)+'</span>'+
         '<span class="io-k"><b>'+t['in']+'</b> começaram · <b>'+t.out+'</b> concluídos · saldo <b style="color:'+(saldo>0?'#F0C878':'#F3F5FA')+'">'+(saldo>0?'+':'')+saldo+'</b></span></div>'+
         '<div class="pv-w io-w">'+bars+'</div><div class="pv-wl">'+L.map(function(l){return '<span>'+l+'</span>';}).join('')+'</div></div>';
@@ -3881,6 +3884,23 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
   wireTimelineToolbar();
   wireTimelineNav();
 
+})();
+</script>
+
+<div id="gov-tip" style="position:fixed;z-index:9999;pointer-events:none;display:none;background:#0b1020;border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:8px 10px;font:12px/1.5 'Inter',sans-serif;color:#e8eaf4;box-shadow:0 6px 18px rgba(0,0,0,.4);max-width:280px"></div>
+<script>
+(function(){
+  var tip=document.getElementById('gov-tip');
+  document.addEventListener('mousemove',function(e){
+    var t=e.target.closest ? e.target.closest('[data-tip]') : null;
+    if(!t){ tip.style.display='none'; return; }
+    tip.innerHTML=t.getAttribute('data-tip'); tip.style.display='block';
+    var x=e.clientX+14, y=e.clientY+14, r=tip.getBoundingClientRect();
+    if(x+r.width>window.innerWidth-8) x=e.clientX-r.width-14;
+    if(y+r.height>window.innerHeight-8) y=e.clientY-r.height-14;
+    tip.style.left=x+'px'; tip.style.top=y+'px';
+  });
+  document.addEventListener('mouseleave',function(){ tip.style.display='none'; });
 })();
 </script>
 </body>
