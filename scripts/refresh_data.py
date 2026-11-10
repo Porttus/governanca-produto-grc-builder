@@ -1133,6 +1133,54 @@ def build_flow_in_out(n_weeks=8):
     return out
 
 
+# =========================================================
+#  Completude por frente (card do topo)
+#  Itens de execução (Melhoria, User Story, Bug, Spike) cuja iniciativa pai
+#  está ABERTA: Feature = Inovação, Solicitação = Evolução, Incidente = Correção.
+#  Cancelados (Removed) ficam fora. Entregue = Closed, Feito ou Resolved.
+# =========================================================
+def build_completion_fronts():
+    print("Calculando Completude por frente (Inovação, Evolução, Correção)...")
+    types = "'Feature','Solicitação','Incidente','Iniciativas','Discovery','Epic','Melhoria','User Story','Bug','Spike'"
+    q = (f"SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project "
+         f"AND [System.WorkItemType] IN ({types})")
+    ids = [wi["id"] for wi in wiql(q).get("workItems", [])]
+    allw = {it["id"]: it["fields"] for it in batch_fetch(ids, ["System.Id", "System.WorkItemType", "System.State", "System.Parent"])}
+    closed_init = {"Closed", "Feito", "Removed", "Resolved"}
+    done = {"Closed", "Feito", "Resolved"}
+    fronts = {"Inovação": [0, 0], "Evolução": [0, 0], "Correção": [0, 0]}
+    open_inits = {k: set() for k in fronts}
+    for f in allw.values():
+        if f["System.WorkItemType"] not in ("Melhoria", "User Story", "Bug", "Spike"):
+            continue
+        if f["System.State"] in ("Removed", "Removido"):
+            continue
+        p, hops, front = f.get("System.Parent"), 0, None
+        while p and p in allw and hops < 8:
+            t = allw[p]["System.WorkItemType"]
+            if t in EFFORT_INIT:
+                front = EFFORT_INIT[t]
+                break
+            p, hops = allw[p].get("System.Parent"), hops + 1
+        if front not in fronts or allw[p]["System.State"] in closed_init:
+            continue
+        fronts[front][0] += 1
+        fronts[front][1] += f["System.State"] in done
+        open_inits[front].add(p)
+    total = sum(v[0] for v in fronts.values())
+    delivered = sum(v[1] for v in fronts.values())
+    out = {
+        "total": total, "delivered": delivered,
+        "pct": round(100 * delivered / total) if total else 0,
+        "fronts": [{"front": k, "total": v[0], "delivered": v[1],
+                    "pct": round(100 * v[1] / v[0]) if v[0] else 0,
+                    "open_initiatives": len(open_inits[k])} for k, v in fronts.items()],
+    }
+    print(f"  Completude: {out['pct']}% ({delivered}/{total}) · " +
+          " · ".join(f"{x['front']} {x['pct']}%" for x in out["fronts"]))
+    return out
+
+
 def build_priority_queue():
     print("Buscando Fila de Priorização (itens Novo/A fazer, todos os tipos)...")
     QUEUE_TYPES = "'Discovery','Feature','Solicitação','Melhoria','User Story','Bug','Spike','Incidente','Iniciativas'"
@@ -1205,6 +1253,7 @@ def main():
     effort_mix = build_effort_mix()
     correction_by_area = build_correction_by_area()
     flow_in_out = build_flow_in_out()
+    completion_fronts = build_completion_fronts()
     predictability = build_predictability()
 
     html = replace_json_block(html, "roadmap-data", roadmap_data)
@@ -1216,6 +1265,7 @@ def main():
     html = replace_json_block(html, "effort-mix-data", effort_mix)
     html = replace_json_block(html, "correction-area-data", correction_by_area)
     html = replace_json_block(html, "flow-in-out-data", flow_in_out)
+    html = replace_json_block(html, "completion-fronts-data", completion_fronts)
     html = replace_json_block(html, "refresh-meta-data", {"generated_at": NOW.isoformat()})
     html = replace_json_block(html, "predictability-data", predictability)
 
