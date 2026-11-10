@@ -1105,31 +1105,41 @@ def build_correction_by_area(n_months=3):
     return out
 
 
-def build_flow_in_out(n_weeks=8):
-    print("Calculando entrada × saída semanal...")
+def build_flow_in_out(n_weeks=8, types=("Bug", "Melhoria")):
+    """Entrada × saída semanal, separada por tipo de item (Bug e Melhoria).
+    Começaram = ActivatedDate na semana · Concluídos = ClosedDate na semana (Closed/Feito/Resolved)."""
+    print("Calculando entrada × saída semanal (Bug e Melhoria)...")
     monday = (NOW - timedelta(days=NOW.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
     weeks = [monday - timedelta(weeks=i) for i in range(n_weeks, 0, -1)]
     start = weeks[0]
+    tw = ",".join(f"'{t}'" for t in types)
     q = (f"SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project "
-         f"AND [System.WorkItemType] IN ('Melhoria','User Story','Bug','Spike') "
+         f"AND [System.WorkItemType] IN ({tw}) "
          f"AND [System.State] <> 'Removed' "
          f"AND ([Microsoft.VSTS.Common.ActivatedDate] >= '{start.strftime('%Y-%m-%d')}' "
          f"OR [Microsoft.VSTS.Common.ClosedDate] >= '{start.strftime('%Y-%m-%d')}')")
     ids = [wi["id"] for wi in wiql(q).get("workItems", [])]
-    items = batch_fetch(ids, ["System.Id", "System.State", "Microsoft.VSTS.Common.ActivatedDate",
-                              "Microsoft.VSTS.Common.ClosedDate"])
-    ent, sai = Counter(), Counter()
+    items = batch_fetch(ids, ["System.Id", "System.WorkItemType", "System.State",
+                              "Microsoft.VSTS.Common.ActivatedDate", "Microsoft.VSTS.Common.ClosedDate"])
+    ent = {t: Counter() for t in types}
+    sai = {t: Counter() for t in types}
     for it in items:
         f = it["fields"]
+        t = f.get("System.WorkItemType")
+        if t not in ent:
+            continue
         a = parse_dt(f.get("Microsoft.VSTS.Common.ActivatedDate"))
         c = parse_dt(f.get("Microsoft.VSTS.Common.ClosedDate"))
-        if a and a >= start and a < monday:
-            ent[(a - timedelta(days=a.weekday())).date()] += 1
+        if a and start <= a < monday:
+            ent[t][(a - timedelta(days=a.weekday())).date()] += 1
         if c and f.get("System.State") in ("Closed", "Feito", "Resolved") and start <= c < monday:
-            sai[(c - timedelta(days=c.weekday())).date()] += 1
-    rows = [[w.strftime("%d/%m"), ent[w.date()], sai[w.date()]] for w in weeks]
-    out = {"weeks": rows, "in": sum(r[1] for r in rows), "out": sum(r[2] for r in rows)}
-    print(f"  entrada {out['in']} · saída {out['out']}")
+            sai[t][(c - timedelta(days=c.weekday())).date()] += 1
+    out = {"labels": [w.strftime("%d/%m") for w in weeks], "types": []}
+    for t in types:
+        rows = [[ent[t][w.date()], sai[t][w.date()]] for w in weeks]
+        out["types"].append({"type": t, "weeks": rows,
+                             "in": sum(r[0] for r in rows), "out": sum(r[1] for r in rows)})
+        print(f"  {t}: entrada {out['types'][-1]['in']} · saída {out['types'][-1]['out']}")
     return out
 
 
