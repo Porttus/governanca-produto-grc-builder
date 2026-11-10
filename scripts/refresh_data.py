@@ -980,6 +980,159 @@ def build_effort_mix(n_months=5):
     return out
 
 
+# =========================================================
+#  Correção por área do produto (últimos 3 meses fechados)
+#  Itens de Correção = itens de execução cuja iniciativa pai é Incidente/Iniciativas.
+#  Área = início do título (padrão "Área > Tela > Problema"), normalizada pelas regras abaixo.
+#  Medida = dias em andamento no mês. Services = itens técnicos sem tela.
+# =========================================================
+import unicodedata as _ud
+
+AREA_RULES = [
+    ("firefighter", "Firefighter"),
+    ("riscos", "Riscos e Controles"), ("rcm", "Riscos e Controles"),
+    ("analise de risco", "Riscos e Controles"), ("painel de risco", "Riscos e Controles"),
+    ("acessos", "Acessos"), ("acm", "Acessos"), ("identidade", "Acessos"),
+    ("super usu", "Acessos"), ("criacao de usuario", "Acessos"),
+    ("perfi", "Manutenção de Perfil"),
+    ("workflow", "Workflows"), ("delegacao", "Workflows"),
+    ("conector", "Conectores"), ("sync", "Conectores"), ("integracao", "Conectores"),
+    ("login", "Login e Conta"), ("autentica", "Login e Conta"), ("conta", "Login e Conta"), ("senha", "Login e Conta"),
+    ("auditoria", "Auditoria e Relatórios"), ("relat", "Auditoria e Relatórios"),
+    ("administra", "Administração"), ("home", "Administração"),
+    ("geral", "Services"), ("worker", "Services"), ("sistema", "Services"), ("api", "Services"),
+    ("jobs", "Services"), ("core", "Services"), ("e-mail", "Services"), ("service", "Services"),
+]
+
+
+def _norm(s):
+    return _ud.normalize("NFKD", s.lower()).encode("ascii", "ignore").decode()
+
+
+def area_from_title(title):
+    if "card de teste" in title.lower():
+        return None
+    head = _norm(title.split(">")[0] if ">" in title else title)
+    for key, area in AREA_RULES:
+        if key in head:
+            return area
+    return "Sem área"
+
+
+def _fetch_exec_with_parents(win_start):
+    q = (f"SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project "
+         f"AND [System.WorkItemType] IN ('Melhoria','User Story','Bug','Spike') "
+         f"AND [System.State] <> 'Removed' "
+         f"AND ([System.State] NOT IN ('Closed','Feito','Resolved') "
+         f"OR [Microsoft.VSTS.Common.ClosedDate] >= '{win_start.strftime('%Y-%m-%d')}')")
+    ids = [wi["id"] for wi in wiql(q).get("workItems", [])]
+    fields = ["System.Id", "System.WorkItemType", "System.State", "System.Parent", "System.Title",
+              "Microsoft.VSTS.Common.ActivatedDate", "Microsoft.VSTS.Common.ClosedDate"]
+    items = batch_fetch(ids, fields)
+    allw = {it["id"]: it["fields"] for it in items}
+    todo = {f.get("System.Parent") for f in allw.values()} - {None} - set(allw)
+    while todo:
+        got = batch_fetch(list(todo), fields)
+        for g in got:
+            allw[g["id"]] = g["fields"]
+        todo = {g["fields"].get("System.Parent") for g in got} - {None} - set(allw)
+    return items, allw
+
+
+def build_correction_by_area(n_months=3):
+    print("Calculando Correção por área do produto (últimos 3 meses fechados)...")
+    first_this = NOW.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    months, m = [], first_this
+    for _ in range(n_months):
+        m = (m - timedelta(days=1)).replace(day=1)
+        months.insert(0, m)
+    bounds = [(d, (d + timedelta(days=32)).replace(day=1)) for d in months]
+    items, allw = _fetch_exec_with_parents(months[0])
+
+    def is_correction(f):
+        p, hops = f.get("System.Parent"), 0
+        while p and p in allw and hops < 8:
+            t = allw[p]["System.WorkItemType"]
+            if t in EFFORT_INIT:
+                return EFFORT_INIT[t] == "Correção"
+            p, hops = allw[p].get("System.Parent"), hops + 1
+        return False
+
+    eff = [Counter() for _ in months]
+    ids_by_area = defaultdict(set)
+    for it in items:
+        f = it["fields"]
+        if not is_correction(f):
+            continue
+        area = area_from_title(f.get("System.Title") or "")
+        if not area:
+            continue
+        a = parse_dt(f.get("Microsoft.VSTS.Common.ActivatedDate"))
+        if not a:
+            continue
+        closed = f.get("System.State") in ("Closed", "Feito", "Resolved")
+        end = parse_dt(f.get("Microsoft.VSTS.Common.ClosedDate")) if closed else NOW
+        if not end:
+            continue
+        for i, (s0, s1) in enumerate(bounds):
+            s, e = max(a, s0), min(end, s1)
+            if e > s:
+                eff[i][area] += (e - s).total_seconds() / 86400
+                ids_by_area[area].add(it["id"])
+    total = Counter()
+    for c in eff:
+        total.update(c)
+    tt = sum(total.values())
+    mtot = [sum(c.values()) for c in eff]
+    areas = []
+    for area, v in total.most_common():
+        areas.append({
+            "area": area,
+            "pct": round(100 * v / tt, 1) if tt else 0,
+            "items": len(ids_by_area[area]),
+            "monthly": [round(100 * eff[i][area] / mtot[i], 1) if mtot[i] else 0 for i in range(len(months))],
+        })
+    n_items = len(set().union(*ids_by_area.values())) if ids_by_area else 0
+    n_sem = len(ids_by_area.get("Sem área", set()))
+    out = {
+        "months": [MESES_PT[d.month - 1][:3].capitalize() for d in months],
+        "period": f"{MESES_PT[months[0].month - 1][:3]} a {MESES_PT[months[-1].month - 1][:3]}",
+        "areas": areas,
+        "n_items": n_items,
+        "identified_pct": round(100 * (n_items - n_sem) / n_items) if n_items else 0,
+    }
+    print(f"  {n_items} itens · top: {[(a['area'], a['pct']) for a in areas[:3]]}")
+    return out
+
+
+def build_flow_in_out(n_weeks=8):
+    print("Calculando entrada × saída semanal...")
+    monday = (NOW - timedelta(days=NOW.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+    weeks = [monday - timedelta(weeks=i) for i in range(n_weeks, 0, -1)]
+    start = weeks[0]
+    q = (f"SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project "
+         f"AND [System.WorkItemType] IN ('Melhoria','User Story','Bug','Spike') "
+         f"AND [System.State] <> 'Removed' "
+         f"AND ([Microsoft.VSTS.Common.ActivatedDate] >= '{start.strftime('%Y-%m-%d')}' "
+         f"OR [Microsoft.VSTS.Common.ClosedDate] >= '{start.strftime('%Y-%m-%d')}')")
+    ids = [wi["id"] for wi in wiql(q).get("workItems", [])]
+    items = batch_fetch(ids, ["System.Id", "System.State", "Microsoft.VSTS.Common.ActivatedDate",
+                              "Microsoft.VSTS.Common.ClosedDate"])
+    ent, sai = Counter(), Counter()
+    for it in items:
+        f = it["fields"]
+        a = parse_dt(f.get("Microsoft.VSTS.Common.ActivatedDate"))
+        c = parse_dt(f.get("Microsoft.VSTS.Common.ClosedDate"))
+        if a and a >= start and a < monday:
+            ent[(a - timedelta(days=a.weekday())).date()] += 1
+        if c and f.get("System.State") in ("Closed", "Feito", "Resolved") and start <= c < monday:
+            sai[(c - timedelta(days=c.weekday())).date()] += 1
+    rows = [[w.strftime("%d/%m"), ent[w.date()], sai[w.date()]] for w in weeks]
+    out = {"weeks": rows, "in": sum(r[1] for r in rows), "out": sum(r[2] for r in rows)}
+    print(f"  entrada {out['in']} · saída {out['out']}")
+    return out
+
+
 def build_priority_queue():
     print("Buscando Fila de Priorização (itens Novo/A fazer, todos os tipos)...")
     QUEUE_TYPES = "'Discovery','Feature','Solicitação','Melhoria','User Story','Bug','Spike','Incidente','Iniciativas'"
@@ -1050,6 +1203,8 @@ def main():
     type_map = build_type_map()
     activity_composition = build_activity_composition()
     effort_mix = build_effort_mix()
+    correction_by_area = build_correction_by_area()
+    flow_in_out = build_flow_in_out()
     predictability = build_predictability()
 
     html = replace_json_block(html, "roadmap-data", roadmap_data)
@@ -1059,6 +1214,9 @@ def main():
     html = replace_json_block(html, "type-map-data", type_map)
     html = replace_json_block(html, "activity-composition-data", activity_composition)
     html = replace_json_block(html, "effort-mix-data", effort_mix)
+    html = replace_json_block(html, "correction-area-data", correction_by_area)
+    html = replace_json_block(html, "flow-in-out-data", flow_in_out)
+    html = replace_json_block(html, "refresh-meta-data", {"generated_at": NOW.isoformat()})
     html = replace_json_block(html, "predictability-data", predictability)
 
     with open(INDEX_PATH, "w", encoding="utf-8") as fh:
