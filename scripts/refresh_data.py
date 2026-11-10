@@ -865,11 +865,11 @@ def build_activity_composition():
 #  distribuídos por mês. Itens de execução: Melhoria, User Story, Bug, Spike.
 #  Classificação pela iniciativa pai (sobe a hierarquia até achar uma):
 #    Feature = Inovação · Solicitação = Evolução · Incidente/Iniciativas = Correção
-#    Discovery = fora do mix · sem iniciativa = Sem dono
+#    Discovery e itens sem iniciativa ficam fora do mix
 # =========================================================
 MESES_PT = ["janeiro","fevereiro","março","abril","maio","junho","julho",
             "agosto","setembro","outubro","novembro","dezembro"]
-EFFORT_CATS = ["Inovação", "Evolução", "Correção", "Sem dono"]
+EFFORT_CATS = ["Inovação", "Evolução", "Correção"]  # itens sem iniciativa ("Sem dono") ficam fora do mix
 EFFORT_INIT = {"Feature": "Inovação", "Solicitação": "Evolução", "Incidente": "Correção",
                "Iniciativas": "Correção", "Discovery": "Discovery"}
 
