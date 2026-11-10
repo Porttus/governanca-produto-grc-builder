@@ -859,6 +859,127 @@ def build_activity_composition():
     return {"items": result, "total": total, "period_label": "New até Resolved"}
 
 
+# =========================================================
+#  Onde foi o esforço do time (visão executiva)
+#  Medida: dias em andamento (ActivatedDate até ClosedDate, ou até agora)
+#  distribuídos por mês. Itens de execução: Melhoria, User Story, Bug, Spike.
+#  Classificação pela iniciativa pai (sobe a hierarquia até achar uma):
+#    Feature = Inovação · Solicitação = Evolução · Incidente/Iniciativas = Correção
+#    Discovery = fora do mix · sem iniciativa = Sem dono
+# =========================================================
+MESES_PT = ["janeiro","fevereiro","março","abril","maio","junho","julho",
+            "agosto","setembro","outubro","novembro","dezembro"]
+EFFORT_CATS = ["Inovação", "Evolução", "Correção", "Sem dono"]
+EFFORT_INIT = {"Feature": "Inovação", "Solicitação": "Evolução", "Incidente": "Correção",
+               "Iniciativas": "Correção", "Discovery": "Discovery"}
+
+
+def build_effort_mix(n_months=5):
+    print("Calculando esforço por frente (dias em andamento, pela iniciativa pai)...")
+    first_this = NOW.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    months = []
+    m = first_this
+    for _ in range(n_months):
+        m = (m - timedelta(days=1)).replace(day=1)
+        months.insert(0, m)
+    win_start = months[0]
+    q = (f"SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project "
+         f"AND [System.WorkItemType] IN ('Melhoria','User Story','Bug','Spike') "
+         f"AND [System.State] <> 'Removed' "
+         f"AND ([System.State] NOT IN ('Closed','Feito','Resolved') "
+         f"OR [Microsoft.VSTS.Common.ClosedDate] >= '{win_start.strftime('%Y-%m-%d')}')")
+    ids = [wi["id"] for wi in wiql(q).get("workItems", [])]
+    fields = ["System.Id", "System.WorkItemType", "System.State", "System.Parent", "System.Title",
+              "Microsoft.VSTS.Common.ActivatedDate", "Microsoft.VSTS.Common.ClosedDate"]
+    items = batch_fetch(ids, fields)
+    allw = {it["id"]: it["fields"] for it in items}
+    todo = {f.get("System.Parent") for f in allw.values()} - {None} - set(allw)
+    while todo:
+        got = batch_fetch(list(todo), fields)
+        for g in got:
+            allw[g["id"]] = g["fields"]
+        todo = {g["fields"].get("System.Parent") for g in got} - {None} - set(allw)
+
+    def classify(f):
+        p, hops = f.get("System.Parent"), 0
+        while p and p in allw and hops < 8:
+            t = allw[p]["System.WorkItemType"]
+            if t in EFFORT_INIT:
+                return EFFORT_INIT[t], p
+            p, hops = allw[p].get("System.Parent"), hops + 1
+        return "Sem dono", None
+
+    mkeys = [d.strftime("%Y-%m") for d in months]
+    eff = {k: Counter() for k in mkeys}
+    feat_eff = Counter()
+    last = mkeys[-1]
+    for it in items:
+        f = it["fields"]
+        a = parse_dt(f.get("Microsoft.VSTS.Common.ActivatedDate"))
+        if not a:
+            continue
+        cat, init_id = classify(f)
+        if cat == "Discovery":
+            continue
+        closed = f.get("System.State") in ("Closed", "Feito", "Resolved")
+        e = parse_dt(f.get("Microsoft.VSTS.Common.ClosedDate")) if closed else NOW
+        if not e or e <= a:
+            continue
+        t = max(a, win_start)
+        while t < e:
+            nxt = min(e, t + timedelta(days=1))
+            k = t.strftime("%Y-%m")
+            if k in eff:
+                d = (nxt - t).total_seconds() / 86400
+                eff[k][cat] += d
+                if k == last and cat == "Inovação" and init_id:
+                    feat_eff[init_id] += d
+            t = nxt
+
+    def pcts(k):
+        tot = sum(eff[k][c] for c in EFFORT_CATS)
+        return [round(100 * eff[k][c] / tot, 1) if tot else 0 for c in EFFORT_CATS]
+
+    tend = [[MESES_PT[d.month - 1][:3].capitalize(), pcts(d.strftime("%Y-%m"))] for d in months]
+    cur, prev = tend[-1][1], (tend[-2][1] if len(tend) > 1 else None)
+    mes, mes_prev = MESES_PT[months[-1].month - 1], MESES_PT[months[-2].month - 1] if len(months) > 1 else ""
+
+    def r(x):
+        return int(round(x))
+
+    def head_share(p, alvo):
+        if 45 <= p <= 55: return f"Metade do esforço foi para {alvo}"
+        if 30 <= p < 37: return f"Cerca de 1/3 do esforço foi para {alvo}"
+        if 22 <= p < 28: return f"1/4 do esforço foi para {alvo}"
+        return f"{r(p)}% do esforço foi para {alvo}"
+
+    def vs(p, q):
+        return f"Era {r(q)}% em {mes_prev}" if q is not None else ""
+
+    sub_inov = vs(cur[0], prev[0] if prev else None)
+    if feat_eff:
+        top_id, top_d = feat_eff.most_common(1)[0]
+        tot_inov = sum(feat_eff.values())
+        if tot_inov and top_d / tot_inov >= 0.4:
+            titulo = allw[top_id]["System.Title"]
+            titulo = titulo if len(titulo) <= 45 else titulo[:42] + "..."
+            sub_inov += f". Puxada pela Feature #{top_id} ({titulo})"
+    msgs = [
+        ["Inovação", head_share(cur[0], "Features"), sub_inov, 0],
+        ["Correção", f"{max(1, r(cur[2] / 10))} em cada 10 dias foram para correção", vs(cur[2], prev[2] if prev else None), 2],
+        ["Evolução", head_share(cur[1], "Solicitações"), vs(cur[1], prev[1] if prev else None), 1],
+    ]
+    out = {
+        "mes": mes,
+        "fonte": "dias em andamento · itens classificados pela iniciativa pai: Feature = Inovação, Solicitação = Evolução, Incidente = Correção",
+        "atual": [[c, cur[i]] for i, c in enumerate(EFFORT_CATS)],
+        "tend": tend,
+        "msgs": msgs,
+    }
+    print(f"  {mes}: {dict(zip(EFFORT_CATS, cur))}")
+    return out
+
+
 def build_priority_queue():
     print("Buscando Fila de Priorização (itens Novo/A fazer, todos os tipos)...")
     QUEUE_TYPES = "'Discovery','Feature','Solicitação','Melhoria','User Story','Bug','Spike','Incidente','Iniciativas'"
@@ -928,6 +1049,7 @@ def main():
     priority_queue = build_priority_queue()
     type_map = build_type_map()
     activity_composition = build_activity_composition()
+    effort_mix = build_effort_mix()
     predictability = build_predictability()
 
     html = replace_json_block(html, "roadmap-data", roadmap_data)
@@ -936,6 +1058,7 @@ def main():
     html = replace_json_block(html, "priority-queue-data", priority_queue)
     html = replace_json_block(html, "type-map-data", type_map)
     html = replace_json_block(html, "activity-composition-data", activity_composition)
+    html = replace_json_block(html, "effort-mix-data", effort_mix)
     html = replace_json_block(html, "predictability-data", predictability)
 
     with open(INDEX_PATH, "w", encoding="utf-8") as fh:
