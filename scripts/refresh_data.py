@@ -1191,6 +1191,120 @@ def build_completion_fronts():
     return out
 
 
+# =========================================================
+#  Roadmap por horizonte (Agora · Próximo · Depois · Entregue)
+#  Agora    = Feature/Solicitação em andamento (exceto o balde #7108)
+#  Próximo  = Feature em New/A fazer, na ordem do backlog (StackRank)
+#  Depois   = Discovery não concluída
+#  Entregue = Feature/Solicitação concluída nos últimos 90 dias
+#  Previsão (Agora): Monte Carlo sobre as entregas semanais da própria
+#  iniciativa nas últimas 8 semanas, 85% de confiança.
+# =========================================================
+ROADMAP_BUCKETS = {7108}
+
+
+def build_roadmap_horizons(sim_runs=3000):
+    import random
+    print("Montando roadmap por horizonte (Agora, Próximo, Depois)...")
+    rng = random.Random(42)
+    types = "'Epic','Feature','Solicitação','Discovery','Incidente','Iniciativas','Melhoria','User Story','Bug','Spike'"
+    q = (f"SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project "
+         f"AND [System.WorkItemType] IN ({types}) AND [System.State] <> 'Removed'")
+    ids = [wi["id"] for wi in wiql(q).get("workItems", [])]
+    fields = ["System.Id", "System.WorkItemType", "System.State", "System.Title", "System.Parent",
+              "Microsoft.VSTS.Common.StackRank", "Microsoft.VSTS.Common.ClosedDate",
+              "Microsoft.VSTS.Scheduling.TargetDate", "System.CreatedDate"]
+    allw = {it["id"]: it["fields"] for it in batch_fetch(ids, fields)}
+    done_states = {"Closed", "Feito", "Resolved"}
+    init_types = {"Feature", "Solicitação", "Discovery"}
+
+    def epic_of(f):
+        p, hops = f.get("System.Parent"), 0
+        while p and p in allw and hops < 6:
+            if allw[p]["System.WorkItemType"] == "Epic":
+                return allw[p]["System.Title"]
+            p, hops = allw[p].get("System.Parent"), hops + 1
+        return None
+
+    kids = defaultdict(list)
+    for i, f in allw.items():
+        if f["System.WorkItemType"] not in ("Melhoria", "User Story", "Bug", "Spike"):
+            continue
+        p, hops = f.get("System.Parent"), 0
+        while p and p in allw and hops < 6:
+            if allw[p]["System.WorkItemType"] in init_types:
+                kids[p].append(i)
+                break
+            p, hops = allw[p].get("System.Parent"), hops + 1
+
+    def progress_and_forecast(iid):
+        ks = [allw[k] for k in kids.get(iid, [])]
+        tot = len(ks)
+        done = sum(1 for k in ks if k["System.State"] in done_states)
+        rem = tot - done
+        weekly = [0] * 8
+        for k in ks:
+            c = parse_dt(k.get("Microsoft.VSTS.Common.ClosedDate"))
+            if c and k["System.State"] in done_states and NOW - timedelta(weeks=8) <= c < NOW:
+                weekly[min(7, int((NOW - c).days // 7))] += 1
+        res = {"done": done, "total": tot, "status": None, "p85": None}
+        if tot == 0:
+            res["status"] = "sem_itens"
+        elif rem == 0:
+            res["status"] = "pronta"
+        elif sum(weekly) == 0:
+            res["status"] = "parada"
+        else:
+            sims = []
+            for _ in range(sim_runs):
+                r, wk = rem, 0
+                while r > 0 and wk < 104:
+                    r -= rng.choice(weekly)
+                    wk += 1
+                sims.append(wk)
+            sims.sort()
+            res["status"] = "previsao"
+            res["p85"] = (NOW + timedelta(weeks=sims[int(0.85 * len(sims))])).strftime("%Y-%m-%d")
+        return res
+
+    front = {"Feature": "Inovação", "Solicitação": "Evolução", "Discovery": "Discovery"}
+    agora, proximo, depois, entregue = [], [], [], []
+    for i, f in allw.items():
+        t, st = f["System.WorkItemType"], f["System.State"]
+        if t not in init_types or i in ROADMAP_BUCKETS:
+            continue
+        base = {"id": i, "type": t, "front": front[t], "title": f.get("System.Title", ""),
+                "epic": epic_of(f), "state": st,
+                "target": (f.get("Microsoft.VSTS.Scheduling.TargetDate") or "")[:10],
+                "rank": f.get("Microsoft.VSTS.Common.StackRank")}
+        if t in ("Feature", "Solicitação") and st == "Fazendo":
+            base.update(progress_and_forecast(i))
+            agora.append(base)
+        elif t == "Feature" and st in ("New", "A fazer"):
+            pf = progress_and_forecast(i)
+            base.update({"done": pf["done"], "total": pf["total"]})
+            proximo.append(base)
+        elif t == "Discovery" and st not in done_states:
+            created = parse_dt(f.get("System.CreatedDate"))
+            base["age_months"] = (NOW - created).days // 30 if created else None
+            depois.append(base)
+        elif t in ("Feature", "Solicitação") and st in done_states:
+            c = parse_dt(f.get("Microsoft.VSTS.Common.ClosedDate"))
+            if c and c >= NOW - timedelta(days=90):
+                tg = parse_dt(f.get("Microsoft.VSTS.Scheduling.TargetDate"))
+                base["closed"] = c.strftime("%Y-%m-%d")
+                base["on_time"] = (c <= tg + timedelta(days=1)) if tg else None
+                entregue.append(base)
+    rank_key = lambda x: (x["rank"] is None, x["rank"] or 0)
+    proximo.sort(key=rank_key)
+    depois.sort(key=rank_key)
+    agora.sort(key=lambda x: ({"previsao": 0, "pronta": 1, "parada": 2, "sem_itens": 3}[x["status"]], x["p85"] or ""))
+    entregue.sort(key=lambda x: x["closed"], reverse=True)
+    out = {"agora": agora, "proximo": proximo, "depois": depois, "entregue": entregue}
+    print(f"  Agora {len(agora)} · Próximo {len(proximo)} · Depois {len(depois)} · Entregue (90d) {len(entregue)}")
+    return out
+
+
 def build_priority_queue():
     print("Buscando Fila de Priorização (itens Novo/A fazer, todos os tipos)...")
     QUEUE_TYPES = "'Discovery','Feature','Solicitação','Melhoria','User Story','Bug','Spike','Incidente','Iniciativas'"
@@ -1264,6 +1378,7 @@ def main():
     correction_by_area = build_correction_by_area()
     flow_in_out = build_flow_in_out()
     completion_fronts = build_completion_fronts()
+    roadmap_horizons = build_roadmap_horizons()
     predictability = build_predictability()
 
     html = replace_json_block(html, "roadmap-data", roadmap_data)
@@ -1276,6 +1391,7 @@ def main():
     html = replace_json_block(html, "correction-area-data", correction_by_area)
     html = replace_json_block(html, "flow-in-out-data", flow_in_out)
     html = replace_json_block(html, "completion-fronts-data", completion_fronts)
+    html = replace_json_block(html, "roadmap-horizons-data", roadmap_horizons)
     html = replace_json_block(html, "refresh-meta-data", {"generated_at": NOW.isoformat()})
     html = replace_json_block(html, "predictability-data", predictability)
 
