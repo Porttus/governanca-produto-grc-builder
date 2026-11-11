@@ -1335,6 +1335,126 @@ def build_roadmap_horizons(sim_runs=3000):
     return out
 
 
+# =========================================================
+#  Aba Métricas (dados brutos compactos; os cálculos por período e frente
+#  são feitos no navegador, para os filtros funcionarem sem novo refresh)
+#  Tempos sempre em P85. Frente pela iniciativa pai.
+# =========================================================
+# Níveis da Governança de Produto (atualizar em promoções/movimentações)
+DEV_LEVELS = {
+    "Henrique Guedes": "Especialista", "Guilherme Araujo": "Especialista",
+    "Thiago Rego": "Arquiteto",
+    "Rodrigo Lombardo Geribola": "Pleno", "Felipe Silva": "Pleno",
+    "Amanda Ribeiro": "Júnior", "Júlia Maria Santos Barroso": "Júnior", "Myllena de Souza Bitar": "Júnior",
+    "Henrique Romanini": "ABAP Júnior",
+}
+
+
+def _ado_get(path):
+    r = subprocess.run(["curl", "-s", "-u", f":{PAT}",
+                        f"https://dev.azure.com/{ORG}/{PROJECT_URL_ENC}/_apis/wit/{path}"],
+                       capture_output=True, text=True)
+    try:
+        return json.loads(r.stdout)
+    except Exception:
+        return {}
+
+
+def _block_info(item_id):
+    """Quando a tag blocked foi colocada, por quem, e o comentário feito naquele dia (motivo)."""
+    import html as _html
+    since, by = None, None
+    for u in _ado_get(f"workitems/{item_id}/updates?api-version=7.1").get("value", []):
+        fl = u.get("fields", {})
+        if "System.Tags" in fl:
+            new = (fl["System.Tags"].get("newValue") or "").lower()
+            old = (fl["System.Tags"].get("oldValue") or "").lower()
+            if "blocked" in new and "blocked" not in old:
+                since = (fl.get("System.ChangedDate") or {}).get("newValue")
+                by = (u.get("revisedBy") or {}).get("displayName")
+    motivo = motivo_por = motivo_em = None
+    if since:
+        t0 = parse_dt(since)
+        best = None
+        for c in _ado_get(f"workItems/{item_id}/comments?api-version=7.1-preview.4").get("comments", []):
+            txt = re.sub(r"\s+", " ", _html.unescape(re.sub("<[^>]+>", " ", c.get("text", "")))).strip()
+            if not txt or txt.startswith(("Completing Pull Request", "Mentioned in")):
+                continue
+            d = parse_dt(c.get("createdDate"))
+            gap = abs((d.date() - t0.date()).days)
+            if gap <= 3 and (best is None or gap < best[0]):
+                best = (gap, d, (c.get("createdBy") or {}).get("displayName"), txt)
+        if best:
+            txt = best[3]
+            m = re.search(r"decis[aã]o:\s*(.*)", txt, re.I)
+            if m:
+                txt = m.group(1)
+            motivo = txt[:170] + ("…" if len(txt) > 170 else "")
+            motivo_por, motivo_em = best[2], best[1].strftime("%d/%m")
+    return since, by, motivo, motivo_por, motivo_em
+
+
+def build_metrics_v2():
+    print("Montando dados da aba Métricas...")
+    year_start = NOW.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+    q = (f"SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project "
+         f"AND [System.WorkItemType] IN ('Melhoria','User Story','Bug','Spike') AND [System.State] <> 'Removed' "
+         f"AND ([System.State] NOT IN ('Closed','Feito','Resolved','New') "
+         f"OR [Microsoft.VSTS.Common.ClosedDate] >= '{year_start.strftime('%Y-%m-%d')}')")
+    ids = [wi["id"] for wi in wiql(q).get("workItems", [])]
+    fields = ["System.Id", "System.WorkItemType", "System.State", "System.Parent", "System.Title",
+              "System.CreatedDate", "Microsoft.VSTS.Common.ActivatedDate", "Microsoft.VSTS.Common.ClosedDate",
+              "System.Tags", "System.AssignedTo", "Microsoft.VSTS.Scheduling.StoryPoints"]
+    items = batch_fetch(ids, fields)
+    allw = {it["id"]: it["fields"] for it in items}
+    todo = {f.get("System.Parent") for f in allw.values()} - {None} - set(allw)
+    while todo:
+        got = batch_fetch(list(todo), ["System.Id", "System.WorkItemType", "System.Parent"])
+        for g in got:
+            allw[g["id"]] = g["fields"]
+        todo = {g["fields"].get("System.Parent") for g in got} - {None} - set(allw)
+
+    def front(f):
+        p, hops = f.get("System.Parent"), 0
+        while p and p in allw and hops < 8:
+            t = allw[p]["System.WorkItemType"]
+            if t in EFFORT_INIT:
+                return EFFORT_INIT[t]
+            p, hops = allw[p].get("System.Parent"), hops + 1
+        return "Sem iniciativa"
+
+    done = {"Closed", "Feito", "Resolved"}
+    closed, wip, blocked = [], [], []
+    for it in items:
+        f = it["fields"]
+        who = (f.get("System.AssignedTo") or {}).get("displayName") if isinstance(f.get("System.AssignedTo"), dict) else None
+        cr = parse_dt(f.get("System.CreatedDate"))
+        ac = parse_dt(f.get("Microsoft.VSTS.Common.ActivatedDate"))
+        cl = parse_dt(f.get("Microsoft.VSTS.Common.ClosedDate"))
+        fr = front(f)
+        if f["System.State"] in done:
+            if cl and ac and cl >= ac and cl >= year_start:
+                closed.append([fr, f["System.WorkItemType"], cl.strftime("%Y-%m-%d"),
+                               round((cl - ac).total_seconds() / 86400, 1), round((cl - cr).total_seconds() / 86400, 1),
+                               who, f.get("Microsoft.VSTS.Scheduling.StoryPoints") or 0])
+        else:
+            ref = ac or cr
+            is_blk = "blocked" in (f.get("System.Tags") or "").lower()
+            wip.append([it["id"], f.get("System.Title", ""), f["System.WorkItemType"], f["System.State"], fr,
+                        round((NOW - ref).total_seconds() / 86400, 1), 1 if is_blk else 0, who])
+            if is_blk:
+                since, by, motivo, mpor, mem = _block_info(it["id"])
+                blocked.append({"id": it["id"], "title": f.get("System.Title", ""), "type": f["System.WorkItemType"],
+                                "state": f["System.State"], "who": who or "Sem responsável",
+                                "days": (NOW - parse_dt(since)).days if since else None, "by": by,
+                                "motivo": motivo, "motivo_por": mpor, "motivo_em": mem})
+    blocked.sort(key=lambda b: -(b["days"] or 0))
+    out = {"generated": NOW.strftime("%Y-%m-%d"), "closed": closed, "wip": wip, "blocked": blocked,
+           "levels": DEV_LEVELS}
+    print(f"  {len(closed)} entregas desde janeiro · WIP {len(wip)} · bloqueados {len(blocked)}")
+    return out
+
+
 def build_priority_queue():
     print("Buscando Fila de Priorização (itens Novo/A fazer, todos os tipos)...")
     QUEUE_TYPES = "'Discovery','Feature','Solicitação','Melhoria','User Story','Bug','Spike','Incidente','Iniciativas'"
@@ -1438,6 +1558,7 @@ def main():
     flow_in_out = build_flow_in_out()
     completion_fronts = build_completion_fronts()
     roadmap_horizons = build_roadmap_horizons()
+    metrics_v2 = build_metrics_v2()
     predictability = build_predictability()
 
     html = replace_json_block(html, "roadmap-data", roadmap_data)
@@ -1451,6 +1572,7 @@ def main():
     html = replace_json_block(html, "flow-in-out-data", flow_in_out)
     html = replace_json_block(html, "completion-fronts-data", completion_fronts)
     html = replace_json_block(html, "roadmap-horizons-data", roadmap_horizons)
+    html = replace_json_block(html, "metrics-v2-data", metrics_v2)
     html = replace_json_block(html, "refresh-meta-data", {"generated_at": NOW.isoformat()})
     html = replace_json_block(html, "predictability-data", predictability)
     html = replace_json_block(html, "kpi-history-data",
