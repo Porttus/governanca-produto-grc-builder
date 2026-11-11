@@ -1424,6 +1424,44 @@ def build_metrics_v2():
         return "Sem iniciativa"
 
     done = {"Closed", "Feito", "Resolved"}
+    # histórico de estados das entregas do ano: etapa de desenvolvimento registrada, retornos do teste e quem desenvolveu
+    import concurrent.futures as _cf
+    closed_ids = [it["id"] for it in items if it["fields"]["System.State"] in done]
+    def _hist(i):
+        return i, _ado_get(f"workitems/{i}/updates?api-version=7.1").get("value", [])
+    hist = {}
+    with _cf.ThreadPoolExecutor(10) as ex:
+        for i, v in ex.map(_hist, closed_ids):
+            hist[i] = v
+    DEV_ST = {"Em Desenvolvimento"}
+    TEST_ST = {"Aguardando Teste", "Em teste", "Validação visual", "Resolved", "Aguardando PR"}
+    BACK_ST = {"Aguardando Desenvolvimento", "Em Desenvolvimento"}
+    def flow_info(i):
+        ev, state, who = [], None, None
+        for u in hist.get(i, []):
+            fl = u.get("fields", {})
+            d = (fl.get("System.ChangedDate") or {}).get("newValue")
+            if not d:
+                continue
+            if "System.State" in fl:
+                state = fl["System.State"].get("newValue")
+            if "System.AssignedTo" in fl:
+                a = fl["System.AssignedTo"].get("newValue")
+                who = a.get("displayName") if isinstance(a, dict) else None
+            ev.append((parse_dt(d), state, who))
+        devtime, rework, seen_test, prev = Counter(), 0, False, None
+        for j, (d, st_, w) in enumerate(ev):
+            nxt = ev[j + 1][0] if j + 1 < len(ev) else d
+            if st_ in DEV_ST:
+                devtime[w] += (nxt - d).total_seconds() / 86400
+            if st_ in TEST_ST:
+                seen_test = True
+            if seen_test and st_ in BACK_ST and prev in TEST_ST:
+                rework += 1
+            prev = st_ or prev
+        skip = 0 if devtime else 1
+        devwho = devtime.most_common(1)[0][0] if devtime else None
+        return skip, rework, round(sum(devtime.values()), 1), devwho
     closed, wip, blocked = [], [], []
     for it in items:
         f = it["fields"]
@@ -1434,9 +1472,11 @@ def build_metrics_v2():
         fr = front(f)
         if f["System.State"] in done:
             if cl and ac and cl >= ac and cl >= year_start:
+                skip, rework, devdays, devwho = flow_info(it["id"])
+                # [frente, tipo, data, cycle, lead, responsável, pontos, pulou_dev, retornos_do_teste, dias_em_dev, quem_desenvolveu]
                 closed.append([fr, f["System.WorkItemType"], cl.strftime("%Y-%m-%d"),
                                round((cl - ac).total_seconds() / 86400, 1), round((cl - cr).total_seconds() / 86400, 1),
-                               who, f.get("Microsoft.VSTS.Scheduling.StoryPoints") or 0])
+                               who, f.get("Microsoft.VSTS.Scheduling.StoryPoints") or 0, skip, rework, devdays, devwho])
         else:
             ref = ac or cr
             is_blk = "blocked" in (f.get("System.Tags") or "").lower()
