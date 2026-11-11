@@ -1521,7 +1521,7 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
       <p class="mx-d">Itens em andamento com a tag blocked no Azure, do bloqueio mais antigo para o mais recente. O motivo é o comentário feito no item na data em que a tag foi colocada.</p>
       <div class="mx-bk mx-h"><span>Item</span><span>Etapa</span><span>Responsável</span><span>Motivo do bloqueio</span><span class="r">Bloqueado há</span></div><div id="mx-blk"></div></section>
     <section class="mx-sec"><div class="mx-hd"><span class="mx-t">Visão por desenvolvedor</span><span class="mx-n" id="mx-dev-n"></span></div>
-      <p class="mx-d">Cada pessoa é avaliada <b>frente por frente</b>, comparando o tempo dela com o P85 do time naquela mesma frente, e pelo ritmo em <b>pontos por semana</b>, comparado com quem tem o mesmo nível (ou com o time, quando o nível tem menos de 3 pessoas). Quando menos de 60% das entregas têm story points, o ritmo é medido em itens por semana. Frentes com menos de 5 entregas e entregas sem iniciativa aparecem, mas não entram na leitura. Use o período acima para comparar o ano com o momento atual.</p>
+      <p class="mx-d">Cada pessoa é avaliada <b>frente por frente</b>, comparando o tempo dela com o P85 do time naquela mesma frente, e pelo ritmo em <b>pontos por semana</b>, comparado com quem tem o mesmo nível (ou com o time, quando o nível tem menos de 3 pessoas). Itens sem story points contam com a média de pontos da própria pessoa; quando menos de 60% das entregas têm pontos, o ritmo é medido em itens por semana. Complexidade = pontos médios por item e % de itens grandes (8 pontos ou mais). Frentes com menos de 5 entregas e entregas sem iniciativa aparecem, mas não entram na leitura. Use o período acima para comparar o ano com o momento atual.</p>
       <div class="mx-dg" id="mx-dev"></div>
       <div class="mx-leg"><span><i style="background:#3b82f6"></i>Inovação</span><span><i style="background:#2fd398"></i>Evolução</span><span><i style="background:#f2696d"></i>Correção</span><span><i style="background:#facc15"></i>Discovery</span><span style="margin-left:auto;color:#fdba74" id="mx-semresp"></span></div></section>
   </div>
@@ -2687,8 +2687,11 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
         var rows=FRS.map(function(f){ var x=cs.filter(function(c){return c[0]===f;}), w=MX.wip.filter(function(r){return r[7]===n&&r[4]===f;});
           if(!x.length&&!w.length) return null;
           return {fr:f,n:x.length,p85:p85(x.map(function(c){return c[3];})),team:T[f],within:x.length&&T[f]!=null?Math.round(x.filter(function(c){return c[3]<=T[f];}).length/x.length*100):null,wip:w.length,wblk:w.filter(function(r){return r[6];}).length}; }).filter(Boolean);
-        return {name:n,lv:LV[n],n:cs.length,itw:cs.length/wk,ptsw:cs.reduce(function(a,c){return a+(c[6]||0);},0)/wk,spcov:cs.length?Math.round(sp.length/cs.length*100):0,
-                sp85:p85(sp.map(function(c){return c[6];})),rows:rows,blk:(MX.blocked||[]).filter(function(b){return b.who===n;})};
+        // ritmo: itens sem story points valem a média de pontos da própria pessoa (não zero)
+        var avg=sp.length?sp.reduce(function(a,c){return a+c[6];},0)/sp.length:0;
+        return {name:n,lv:LV[n],n:cs.length,itw:cs.length/wk,ptsw:avg*cs.length/wk,spcov:cs.length?Math.round(sp.length/cs.length*100):0,
+                avg:sp.length?avg:null,big:sp.length?Math.round(sp.filter(function(c){return c[6]>=8;}).length/sp.length*100):null,
+                rows:rows,blk:(MX.blocked||[]).filter(function(b){return b.who===n;})};
       });
       var order=['Especialista','Arquiteto','Pleno','Júnior','ABAP Júnior'];
       devs.sort(function(a,b){ return (order.indexOf(a.lv)-order.indexOf(b.lv)) || (b.ptsw-a.ptsw); });
@@ -2697,7 +2700,7 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
       var teamPts=ptsDevs.length?ptsDevs.reduce(function(a,d){return a+d.ptsw;},0)/ptsDevs.length:0;
       var itDevs=devs.filter(function(d){return d.lv!=='Arquiteto';}), teamIt=itDevs.length?itDevs.reduce(function(a,d){return a+d.itw;},0)/itDevs.length:0;
       var PL={'Júnior':'júniores','Pleno':'plenos','Especialista':'especialistas'};
-      var lvsp={}; order.forEach(function(l){ var v=devs.filter(function(d){return d.lv===l&&d.sp85;}).map(function(d){return d.sp85;}); lvsp[l]=v.length?v.reduce(function(a,b){return a+b;},0)/v.length:null; });
+      var lvsp={}; order.forEach(function(l){ var v=devs.filter(function(d){return d.lv===l&&d.avg;}).map(function(d){return d.avg;}); lvsp[l]=v.length?v.reduce(function(a,b){return a+b;},0)/v.length:null; });
       function ref(d){
         if(!usaPts(d)) return {v:teamIt,lbl:'média do time',un:'itens/sem',val:d.itw};
         var peers=ptsDevs.filter(function(x){return x.lv===d.lv;});
@@ -2716,6 +2719,7 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
           if(!ia||ia.n<3) t.push('Entregou pouca Inovação no período'+(ia&&ia.wip?', mas tem '+ia.wip+' em andamento'+(ia.wblk?' ('+ia.wblk+' bloqueadas)':''):'')+'; para '+d.lv.toLowerCase()+', a expectativa é carregar mais.'); }
         d.rows.filter(function(r){return r.n>0&&r.n<5&&r.p85!=null&&r.team&&r.p85>r.team*2&&r.fr!=='Sem iniciativa';}).forEach(function(r){ t.push('Em '+r.fr+', as '+r.n+' entregas levaram até '+f1(r.p85)+' dias (amostra pequena).'); });
         var bl=d.blk; if(bl.length){ var ext=bl.filter(function(b){return b.motivo&&/aguardando|aprova/i.test(b.motivo);}).length; t.push(bl.length+(bl.length>1?' itens bloqueados':' item bloqueado')+' hoje'+(ext?', '+ext+' por dependência externa':'')+'.'); }
+        if(d.avg!=null){ var lr=lvsp[d.lv]; t.push('Complexidade média de '+f1(d.avg)+' pontos por item'+(lr&&d.lv!=='ABAP Júnior'?' ('+(d.avg>=lr*1.1?'acima':(d.avg<=lr*0.9?'abaixo':'em linha com'))+' a média do nível, '+f1(lr)+')':'')+', com '+d.big+'% de itens grandes (8 pontos ou mais).'); }
         if(d.lv==='ABAP Júnior') t.push('Único desenvolvedor ABAP: o ritmo é comparado com o time, e a complexidade alta é natural da tecnologia.');
         if(d.lv==='Arquiteto'){ t.unshift('Papel de arquitetura: as entregas próprias mostram só parte do trabalho, que também está em revisões, decisões técnicas e desbloqueios.'); return {lb:['na','Arquiteto · leitura parcial'],txt:t.join(' ')}; }
         if(d.n<10) return {lb:['na','Sem leitura'],txt:'Só '+d.n+' entregas no período, poucas para uma avaliação justa. '+t.slice(2).join(' ')};
@@ -2731,8 +2735,9 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
         return '<div class="pv-box"><div><span class="mx-nm">'+esc(d.name)+'</span><span class="mx-lvl">'+d.lv+'</span></div><div class="mx-ks" style="margin-top:2px">'+d.n+' entregas no período · '+f1(d.itw)+' por semana</div>'+
           '<table class="mx-ft"><tr><th>Frente</th><th>Entregas</th><th>P85 / time</th><th>No prazo</th><th>Em andamento</th></tr>'+rows+'</table>'+
           '<div class="mx-mr" style="margin-top:12px"><span>'+(usaPts(d)?'Pontos por semana':'Itens por semana')+'</span><div class="mx-mb"><i style="width:'+(R.val/mx*100)+'%"></i><u style="left:'+(R.v/mx*100)+'%"></u></div><b>'+f1(R.val)+'</b></div>'+
-          '<div class="mx-mr"><span>Complexidade P85</span><div class="mx-mb"><i style="width:'+Math.min(100,(d.sp85||0)/14*100)+'%"></i><u style="left:'+Math.min(100,lsp/14*100)+'%"></u></div><b>'+(d.sp85!=null?f1(d.sp85)+' pts':'—')+'</b></div>'+
-          '<div class="mx-ks" style="font-size:10.5px;margin-top:4px">Traço branco: '+R.lbl+' no ritmo; média do nível na complexidade. Story points em '+d.spcov+'% das entregas.</div>'+
+          '<div class="mx-mr"><span>Pontos por item</span><div class="mx-mb"><i style="width:'+Math.min(100,(d.avg||0)/8*100)+'%"></i><u style="left:'+Math.min(100,lsp/8*100)+'%"></u></div><b>'+(d.avg!=null?f1(d.avg):'—')+'</b></div>'+
+          '<div class="mx-mr"><span>Itens grandes (8+)</span><div class="mx-mb"><i style="width:'+Math.min(100,(d.big||0)*2)+'%"></i></div><b>'+(d.big!=null?d.big+'%':'—')+'</b></div>'+
+          '<div class="mx-ks" style="font-size:10.5px;margin-top:4px">Traço branco: '+R.lbl+' no ritmo; média do nível em pontos por item. Story points em '+d.spcov+'% das entregas; os itens sem pontos contam com a média da própria pessoa.</div>'+
           '<div class="mx-res"><span class="mx-lb '+L.lb[0]+'">'+L.lb[1]+'</span><br>'+L.txt+'</div></div>';
       }).join('');
       var sem=MX.wip.filter(function(w){return !w[7];}).length;
