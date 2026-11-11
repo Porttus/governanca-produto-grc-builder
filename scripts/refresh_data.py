@@ -968,8 +968,8 @@ def build_effort_mix(n_months=5):
             sub_inov += f". Puxada pela Feature #{top_id} ({titulo})"
     msgs = [
         ["Inovação", head_share(cur[0], "Features"), sub_inov, 0],
-        ["Correção", f"{max(1, r(cur[2] / 10))} em cada 10 dias foram para correção", vs(cur[2], prev[2] if prev else None), 2],
         ["Evolução", head_share(cur[1], "Solicitações"), vs(cur[1], prev[1] if prev else None), 1],
+        ["Correção", f"{max(1, r(cur[2] / 10))} em cada 10 dias foram para correção", vs(cur[2], prev[2] if prev else None), 2],
     ]
     out = {
         "mes": mes,
@@ -1107,7 +1107,7 @@ def build_correction_by_area(n_months=3):
     return out
 
 
-def build_flow_in_out(n_weeks=8, types=("Bug", "Melhoria")):
+def build_flow_in_out(n_weeks=8, types=("Melhoria", "Bug")):
     """Entrada × saída semanal por tipo (Bug e Melhoria).
     Entrada = itens ABERTOS na semana (CreatedDate) · Saída = itens concluídos na semana (Closed/Feito/Resolved).
     Responde se o backlog de cada tipo está crescendo ou diminuindo."""
