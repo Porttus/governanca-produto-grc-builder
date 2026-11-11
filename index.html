@@ -251,7 +251,8 @@ body{
 .io-n{font:600 13px 'Inter';color:#e8eaf4}
 .io-k{font-size:11.5px;color:rgba(232,234,244,.55)}
 .io-k b{color:#F3F5FA;font-weight:600}
-.pv-w.io-w{height:175px}
+.pv-w.io-w{height:165px}
+.io-leg{margin-top:8px}
 [data-tip]{cursor:default}
 .pv-wb:hover i,.ca-sp i:hover,.em-mini:hover,.em-seg:hover{filter:brightness(1.25)}
 .ca-r:hover{background:rgba(255,255,255,.03)}
@@ -2132,15 +2133,18 @@ table.fm-table tbody tr:hover{ background:var(--surface-2); }
     var L = IO.labels || [], TY = IO.types || [];
     var wmax = Math.max.apply(null, TY.map(function(t){ return Math.max.apply(null, t.weeks.map(function(w){ return Math.max(w[0], w[1]); })); }).concat([1]));
     var NOMES = { 'Bug':'Bugs', 'Melhoria':'Melhorias' };
+    var IOCOR = { 'Bug':['#e24b4a','#f5a3a3'], 'Melhoria':['#2e9d5b','#9fd7a8'] };
     var blocks = TY.map(function(t){
+      var cc = IOCOR[t.type] || ['#3987e5','#d95926'];
       var saldo = t['in'] - t.out;
-      var bars = t.weeks.map(function(w,i){ return '<div class="pv-wb" data-tip="<b>'+(NOMES[t.type]||t.type)+' · semana de '+L[i]+'</b><br>Começaram: '+w[0]+'<br>Concluídos: '+w[1]+'<br>Saldo: '+((w[0]-w[1])>0?'+':'')+(w[0]-w[1])+'"><i style="height:'+(w[0]/wmax*100)+'%;background:#3987e5"></i><i style="height:'+(w[1]/wmax*100)+'%;background:#d95926"></i></div>'; }).join('');
+      var bars = t.weeks.map(function(w,i){ return '<div class="pv-wb" data-tip="<b>'+(NOMES[t.type]||t.type)+' · semana de '+L[i]+'</b><br>Começaram: '+w[0]+'<br>Concluídos: '+w[1]+'<br>Saldo: '+((w[0]-w[1])>0?'+':'')+(w[0]-w[1])+'"><i style="height:'+(w[0]/wmax*100)+'%;background:'+cc[0]+'"></i><i style="height:'+(w[1]/wmax*100)+'%;background:'+cc[1]+'"></i></div>'; }).join('');
       return '<div class="io-blk"><div class="io-hd"><span class="io-n">'+(NOMES[t.type]||t.type)+'</span>'+
         '<span class="io-k"><b>'+t['in']+'</b> começaram · <b>'+t.out+'</b> concluídos · saldo <b style="color:'+(saldo>0?'#F0C878':'#F3F5FA')+'">'+(saldo>0?'+':'')+saldo+'</b></span></div>'+
-        '<div class="pv-w io-w">'+bars+'</div><div class="pv-wl">'+L.map(function(l){return '<span>'+l+'</span>';}).join('')+'</div></div>';
+        '<div class="pv-w io-w">'+bars+'</div><div class="pv-wl">'+L.map(function(l){return '<span>'+l+'</span>';}).join('')+'</div>'+
+        '<div class="pv-leg io-leg"><span><i style="background:'+cc[0]+'"></i>Começaram</span><span><i style="background:'+cc[1]+'"></i>Concluídos</span></div></div>';
     }).join('');
     var right = '<div class="pv-box"><div class="pv-hd"><span class="pv-t">Entrada × saída</span><span class="pv-s">últimas '+L.length+' semanas · mesma escala</span></div>'+
-      blocks+'<div class="pv-leg"><span><i style="background:#3987e5"></i>Começaram</span><span><i style="background:#d95926"></i>Concluídos</span></div></div>';
+      blocks+'</div>';
     host.insertAdjacentHTML('afterend','<div class="pv-row">'+left+right+'</div>');
   })();
 
