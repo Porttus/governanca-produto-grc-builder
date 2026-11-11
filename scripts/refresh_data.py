@@ -1295,13 +1295,27 @@ def build_roadmap_horizons(sim_runs=3000):
                 base["closed"] = c.strftime("%Y-%m-%d")
                 base["on_time"] = (c <= tg + timedelta(days=1)) if tg else None
                 entregue.append(base)
+    # Datas vencidas: só Target Date preenchida no Azure (nenhuma data é estimada aqui)
+    vencidas = []
+    status_by_id = {x["id"]: x for x in agora}
+    for i, f in allw.items():
+        t, st = f["System.WorkItemType"], f["System.State"]
+        if t not in init_types or i in ROADMAP_BUCKETS or st in done_states:
+            continue
+        tg = parse_dt(f.get("Microsoft.VSTS.Scheduling.TargetDate"))
+        if tg and tg < NOW:
+            a = status_by_id.get(i, {})
+            vencidas.append({"id": i, "type": t, "title": f.get("System.Title", ""), "state": st,
+                             "target": tg.strftime("%Y-%m-%d"), "days_late": (NOW - tg).days,
+                             "status": a.get("status"), "p85": a.get("p85")})
+    vencidas.sort(key=lambda x: -x["days_late"])
     rank_key = lambda x: (x["rank"] is None, x["rank"] or 0)
     proximo.sort(key=rank_key)
     depois.sort(key=rank_key)
     agora.sort(key=lambda x: ({"previsao": 0, "pronta": 1, "parada": 2, "sem_itens": 3}[x["status"]], x["p85"] or ""))
     entregue.sort(key=lambda x: x["closed"], reverse=True)
-    out = {"agora": agora, "proximo": proximo, "depois": depois, "entregue": entregue}
-    print(f"  Agora {len(agora)} · Próximo {len(proximo)} · Depois {len(depois)} · Entregue (90d) {len(entregue)}")
+    out = {"agora": agora, "proximo": proximo, "depois": depois, "entregue": entregue, "vencidas": vencidas}
+    print(f"  Agora {len(agora)} · Próximo {len(proximo)} · Depois {len(depois)} · Entregue (90d) {len(entregue)} · Datas vencidas {len(vencidas)}")
     return out
 
 
