@@ -567,7 +567,7 @@ def build_flow_metrics():
 
     aging_items = []
     for r in records:
-        if not r["resolved"] and r["state"] not in OPEN_STATES and r["type"] not in EXCLUDE_FE:
+        if not r["resolved"] and r["state"] not in OPEN_STATES and r["type"] not in EXCLUDE_FE and r["type"] not in ("Incidente", "Iniciativas"):
             age_ref = r["activated"] or r["created"]  # fallback: nem todo item tem ActivatedDate preenchido
             age = (NOW - parse_dt(age_ref)).total_seconds() / 86400
             aging_items.append({"id": r["id"], "type": r["type"], "age_days": round(age, 1)})
@@ -603,10 +603,12 @@ def build_flow_metrics():
     # Fazendo. Fora dessa faixa: New, Backlog e fila de refinamento (ainda não
     # comprometido) de um lado; Closed/Feito (entrega) e Removed
     # (cancelamento) do outro.
-    WIP_RANGE_STATES = {"Análise Funcional", "Análise Técnica", "Aguardando Desenvolvimento",
-                         "Em Desenvolvimento", "Aguardando Teste", "Em teste",
-                         "Aguardando PR", "Fazendo", "Resolved"}
-    wip_now = [r for r in records if r["state"] in WIP_RANGE_STATES and r["type"] in FM_FLOW_TYPES]
+    # WIP = todo trabalho em progresso a partir da etapa Backlog (definição da Governança de Produto):
+    # entra qualquer estado depois de New; saem os concluídos (Closed, Feito, Resolved) e os cancelados (Removed).
+    # Só itens de execução: Feature, Solicitação, Incidente e Iniciativas são agrupadores.
+    WIP_EXCLUDED_STATES = {"New", "Closed", "Feito", "Resolved", "Removed"}
+    WIP_TYPES = {"Melhoria", "User Story", "Bug", "Spike"}
+    wip_now = [r for r in records if r["state"] not in WIP_EXCLUDED_STATES and r["type"] in WIP_TYPES]
     wip_now_by_type = dict(Counter(r["type"] for r in wip_now))
     wip_now_total = len(wip_now)
 
@@ -1106,9 +1108,10 @@ def build_correction_by_area(n_months=3):
 
 
 def build_flow_in_out(n_weeks=8, types=("Bug", "Melhoria")):
-    """Entrada × saída semanal, separada por tipo de item (Bug e Melhoria).
-    Começaram = ActivatedDate na semana · Concluídos = ClosedDate na semana (Closed/Feito/Resolved)."""
-    print("Calculando entrada × saída semanal (Bug e Melhoria)...")
+    """Entrada × saída semanal por tipo (Bug e Melhoria).
+    Entrada = itens ABERTOS na semana (CreatedDate) · Saída = itens concluídos na semana (Closed/Feito/Resolved).
+    Responde se o backlog de cada tipo está crescendo ou diminuindo."""
+    print("Calculando entrada × saída semanal (abertura × conclusão, Bug e Melhoria)...")
     monday = (NOW - timedelta(days=NOW.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
     weeks = [monday - timedelta(weeks=i) for i in range(n_weeks, 0, -1)]
     start = weeks[0]
@@ -1116,11 +1119,11 @@ def build_flow_in_out(n_weeks=8, types=("Bug", "Melhoria")):
     q = (f"SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project "
          f"AND [System.WorkItemType] IN ({tw}) "
          f"AND [System.State] <> 'Removed' "
-         f"AND ([Microsoft.VSTS.Common.ActivatedDate] >= '{start.strftime('%Y-%m-%d')}' "
+         f"AND ([System.CreatedDate] >= '{start.strftime('%Y-%m-%d')}' "
          f"OR [Microsoft.VSTS.Common.ClosedDate] >= '{start.strftime('%Y-%m-%d')}')")
     ids = [wi["id"] for wi in wiql(q).get("workItems", [])]
     items = batch_fetch(ids, ["System.Id", "System.WorkItemType", "System.State",
-                              "Microsoft.VSTS.Common.ActivatedDate", "Microsoft.VSTS.Common.ClosedDate"])
+                              "System.CreatedDate", "Microsoft.VSTS.Common.ClosedDate"])
     ent = {t: Counter() for t in types}
     sai = {t: Counter() for t in types}
     for it in items:
@@ -1128,18 +1131,18 @@ def build_flow_in_out(n_weeks=8, types=("Bug", "Melhoria")):
         t = f.get("System.WorkItemType")
         if t not in ent:
             continue
-        a = parse_dt(f.get("Microsoft.VSTS.Common.ActivatedDate"))
+        cr = parse_dt(f.get("System.CreatedDate"))
         c = parse_dt(f.get("Microsoft.VSTS.Common.ClosedDate"))
-        if a and start <= a < monday:
-            ent[t][(a - timedelta(days=a.weekday())).date()] += 1
+        if cr and start <= cr < monday:
+            ent[t][(cr - timedelta(days=cr.weekday())).date()] += 1
         if c and f.get("System.State") in ("Closed", "Feito", "Resolved") and start <= c < monday:
             sai[t][(c - timedelta(days=c.weekday())).date()] += 1
-    out = {"labels": [w.strftime("%d/%m") for w in weeks], "types": []}
+    out = {"labels": [w.strftime("%d/%m") for w in weeks], "basis": "abertura", "types": []}
     for t in types:
         rows = [[ent[t][w.date()], sai[t][w.date()]] for w in weeks]
         out["types"].append({"type": t, "weeks": rows,
                              "in": sum(r[0] for r in rows), "out": sum(r[1] for r in rows)})
-        print(f"  {t}: entrada {out['types'][-1]['in']} · saída {out['types'][-1]['out']}")
+        print(f"  {t}: abertos {out['types'][-1]['in']} · concluídos {out['types'][-1]['out']}")
     return out
 
 
@@ -1160,7 +1163,18 @@ def build_completion_fronts():
     done = {"Closed", "Feito", "Resolved"}
     fronts = {"Inovação": [0, 0], "Evolução": [0, 0], "Correção": [0, 0]}
     open_inits = {k: set() for k in fronts}
+    wip_front = Counter()
+    wip_excluded = {"New", "Closed", "Feito", "Resolved", "Removed"}
     for f in allw.values():
+        if f["System.WorkItemType"] in ("Melhoria", "User Story", "Bug", "Spike") and f["System.State"] not in wip_excluded:
+            p2, h2, fr2 = f.get("System.Parent"), 0, "Sem iniciativa"
+            while p2 and p2 in allw and h2 < 8:
+                t2 = allw[p2]["System.WorkItemType"]
+                if t2 in EFFORT_INIT:
+                    fr2 = EFFORT_INIT[t2]
+                    break
+                p2, h2 = allw[p2].get("System.Parent"), h2 + 1
+            wip_front[fr2] += 1
         if f["System.WorkItemType"] not in ("Melhoria", "User Story", "Bug", "Spike"):
             continue
         if f["System.State"] in ("Removed", "Removido"):
@@ -1185,6 +1199,7 @@ def build_completion_fronts():
         "fronts": [{"front": k, "total": v[0], "delivered": v[1],
                     "pct": round(100 * v[1] / v[0]) if v[0] else 0,
                     "open_initiatives": len(open_inits[k])} for k, v in fronts.items()],
+        "wip_by_front": dict(wip_front),
     }
     print(f"  Completude: {out['pct']}% ({delivered}/{total}) · " +
           " · ".join(f"{x['front']} {x['pct']}%" for x in out["fronts"]))
@@ -1213,7 +1228,7 @@ def build_roadmap_horizons(sim_runs=3000):
     ids = [wi["id"] for wi in wiql(q).get("workItems", [])]
     fields = ["System.Id", "System.WorkItemType", "System.State", "System.Title", "System.Parent",
               "Microsoft.VSTS.Common.StackRank", "Microsoft.VSTS.Common.ClosedDate",
-              "Microsoft.VSTS.Scheduling.TargetDate", "System.CreatedDate"]
+              "Microsoft.VSTS.Scheduling.TargetDate", "System.CreatedDate", "Microsoft.VSTS.Common.Priority"]
     allw = {it["id"]: it["fields"] for it in batch_fetch(ids, fields)}
     done_states = {"Closed", "Feito", "Resolved"}
     init_types = {"Feature", "Solicitação", "Discovery"}
@@ -1276,7 +1291,8 @@ def build_roadmap_horizons(sim_runs=3000):
         base = {"id": i, "type": t, "front": front[t], "title": f.get("System.Title", ""),
                 "epic": epic_of(f), "state": st,
                 "target": (f.get("Microsoft.VSTS.Scheduling.TargetDate") or "")[:10],
-                "rank": f.get("Microsoft.VSTS.Common.StackRank")}
+                "rank": f.get("Microsoft.VSTS.Common.StackRank"),
+                "priority": f.get("Microsoft.VSTS.Common.Priority")}
         if t in ("Feature", "Solicitação") and st == "Fazendo":
             base.update(progress_and_forecast(i))
             agora.append(base)
@@ -1366,6 +1382,35 @@ def replace_json_block(html, script_id, new_data):
     return html[:m.start()] + m.group(1) + new_json + m.group(3) + html[m.end():]
 
 
+def read_json_block(html, block_id, default):
+    m = re.search(r'<script id="' + re.escape(block_id) + r'" type="application/json">(.*?)</script>', html, re.S)
+    if not m:
+        return default
+    try:
+        return json.loads(m.group(1))
+    except Exception:
+        return default
+
+
+def update_kpi_history(html, completion_fronts, flow_data, roadmap_horizons, predictability):
+    """Guarda uma foto diária dos cards do topo para mostrar a variação em relação a ~30 dias atrás."""
+    hist = read_json_block(html, "kpi-history-data", [])
+    if not isinstance(hist, list):
+        hist = []
+    agora = roadmap_horizons.get("agora", [])
+    today = {
+        "date": NOW.strftime("%Y-%m-%d"),
+        "completude": completion_fronts.get("pct"),
+        "wip": flow_data.get("wip_now_total"),
+        "bloqueados": flow_data.get("blocked_count"),
+        "paradas": sum(1 for x in agora if x.get("status") in ("parada", "sem_itens")),
+        "prazo": (predictability or {}).get("on_time_pct"),
+    }
+    hist = [h for h in hist if h.get("date") != today["date"]] + [today]
+    hist.sort(key=lambda h: h["date"])
+    return hist[-400:]
+
+
 def main():
     print(f"=== Refresh iniciado em {NOW.isoformat()} ===")
     if not os.path.exists(INDEX_PATH):
@@ -1408,6 +1453,8 @@ def main():
     html = replace_json_block(html, "roadmap-horizons-data", roadmap_horizons)
     html = replace_json_block(html, "refresh-meta-data", {"generated_at": NOW.isoformat()})
     html = replace_json_block(html, "predictability-data", predictability)
+    html = replace_json_block(html, "kpi-history-data",
+                              update_kpi_history(html, completion_fronts, flow_data, roadmap_horizons, predictability))
 
     with open(INDEX_PATH, "w", encoding="utf-8") as fh:
         fh.write(html)
