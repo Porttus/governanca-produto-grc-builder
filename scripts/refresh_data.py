@@ -1513,9 +1513,14 @@ def build_strategy_azure(html, roadmap_horizons):
     seed = read_json_block(html, "strategy-portfolio-seed", {})
     ids = sorted({int(re.sub(r"\D", "", str(v.get("azureId") or k))) for k, v in seed.items()
                   if re.sub(r"\D", "", str(v.get("azureId") or k))})
+    # também calcula para todas as Features, Solicitações e Discoveries do projeto,
+    # para que um ID digitado na lista já tenha a conclusão na próxima atualização
+    qi = ("SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project "
+          "AND [System.WorkItemType] IN ('Feature','Solicitação','Discovery') AND [System.State] <> 'Removed'")
+    ids = sorted(set(ids) | {w["id"] for w in wiql(qi).get("workItems", [])})
     if not ids:
         return {"generated": NOW.strftime("%d/%m/%Y"), "items": {}}
-    print(f"Calculando a conclusão das {len(ids)} iniciativas da Visão Estratégica...")
+    print(f"Calculando a conclusão de {len(ids)} demandas para a Visão Estratégica...")
     fields = ["System.Id", "System.WorkItemType", "System.State", "System.Parent", "System.Title",
               "Microsoft.VSTS.Scheduling.StoryPoints"]
     roots = ids + list(PORTFOLIO_DELIVERY.values())
