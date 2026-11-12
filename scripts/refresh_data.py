@@ -1556,7 +1556,7 @@ def build_strategy_azure(html, roadmap_horizons):
         if not t:
             continue
         typ, st = t["System.WorkItemType"], t["System.State"]
-        deliv, forecast = [], ""
+        deliv, forecast = [], ""   # sem previsão P85 na Visão Estratégica
         if typ == "Discovery":
             df = 1.0 if st in ("Closed", "Feito") else FLOW_WEIGHT.get(st, 0)
             sp = [desc[x] for x in descendants(i) if desc[x]["System.WorkItemType"] == "Spike"]
@@ -1565,8 +1565,7 @@ def build_strategy_azure(html, roadmap_horizons):
             root = PORTFOLIO_DELIVERY.get(i)
             ef, n = exec_frac(root) if root else (None, 0)
             if root and root in top:
-                deliv = [{"id": root, "title": top[root]["System.Title"], "state": top[root]["System.State"], "p85": p85.get(root)}]
-                forecast = p85.get(root) or ""
+                deliv = [{"id": root, "title": top[root]["System.Title"], "state": top[root]["System.State"]}]
             parts = {"disc": round(20 * df), "plan": 10 if n else 0, "exec": round(70 * (ef or 0))}
             note = "Discovery · " + st + (f" · entrega #{root} {top[root]['System.State']}" if deliv
                                           else (" · sem Feature de entrega vinculada" if st in ("Closed", "Feito") else ""))
@@ -1580,7 +1579,6 @@ def build_strategy_azure(html, roadmap_horizons):
                 parts = {"disc": 20, "plan": 10 if n else 0, "exec": round(70 * (ef or 0))}
             note = typ + " · " + st + (f" · {n} itens" if n and typ in ("Feature", "Solicitação")
                                        else (" · sem histórias criadas" if typ in ("Feature", "Solicitação") else ""))
-            forecast = p85.get(i) or ""
         out[str(i)] = {"progress": sum(parts.values()), "parts": parts,
                        "base": {"discState": st, "type": typ}, "disc": typ + " · " + st,
                        "azTitle": t.get("System.Title", ""), "note": note, "deliv": deliv, "forecast": forecast}
@@ -1716,8 +1714,7 @@ def main():
         fh.write(html)
 
     print("=== Refresh concluído com sucesso. index.html atualizado. ===")
-    print("Visão Estratégica: conclusão das iniciativas recalculada pelo Azure DevOps; os demais campos são editados na própria aba.") "
-          "não é atualizada automaticamente por este script — segue com o snapshot manual mais recente.")
+    print("Visão Estratégica: conclusão das iniciativas recalculada pelo Azure DevOps; os demais campos são editados na própria aba.")
 
 
 if __name__ == "__main__":
