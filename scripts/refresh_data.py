@@ -1495,6 +1495,99 @@ def build_metrics_v2():
     return out
 
 
+# =========================================================
+#  Visão Estratégica (portfólio): conclusão de cada iniciativa pelo fluxo no Azure
+#  Discovery (até 20) + planejamento com histórias criadas (10) + execução pelo
+#  estado de cada item no board, ponderada por story points (até 70).
+#  Os demais campos da lista são editados na própria página.
+# =========================================================
+PORTFOLIO_DELIVERY = {6464: 8097}   # Discovery -> Feature de entrega confirmada
+FLOW_WEIGHT = {"New": 0, "Backlog": .05, "Aguardando Refinamento": .1, "Em refinamento": .15,
+               "Análise Funcional": .2, "Análise Técnica": .25, "Aguardando Desenvolvimento": .3,
+               "Em Desenvolvimento": .5, "Aguardando PR": .65, "Aguardando Teste": .7, "Em teste": .8,
+               "Validação visual": .9, "Resolved": .95, "Closed": 1, "Feito": 1, "Fazendo": .5,
+               "Active": .5, "A fazer": .1, "Descoberta": .5, "Decisão": .8}
+
+
+def build_strategy_azure(html, roadmap_horizons):
+    seed = read_json_block(html, "strategy-portfolio-seed", {})
+    ids = sorted({int(re.sub(r"\D", "", str(v.get("azureId") or k))) for k, v in seed.items()
+                  if re.sub(r"\D", "", str(v.get("azureId") or k))})
+    if not ids:
+        return {"generated": NOW.strftime("%d/%m/%Y"), "items": {}}
+    print(f"Calculando a conclusão das {len(ids)} iniciativas da Visão Estratégica...")
+    fields = ["System.Id", "System.WorkItemType", "System.State", "System.Parent", "System.Title",
+              "Microsoft.VSTS.Scheduling.StoryPoints"]
+    roots = ids + list(PORTFOLIO_DELIVERY.values())
+    top = {it["id"]: it["fields"] for it in batch_fetch(roots, fields)}
+    desc, frontier = {}, roots[:]
+    while frontier:
+        q = ("SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project "
+             "AND [System.Parent] IN (" + ",".join(map(str, frontier)) + ")")
+        ch = [w["id"] for w in wiql(q).get("workItems", []) if w["id"] not in desc]
+        got = batch_fetch(ch, fields) if ch else []
+        for g in got:
+            desc[g["id"]] = g["fields"]
+        frontier = [g["id"] for g in got]
+    kids = defaultdict(list)
+    for i, f in desc.items():
+        kids[f.get("System.Parent")].append(i)
+
+    def descendants(p):
+        out, st = [], [p]
+        while st:
+            x = st.pop()
+            for k in kids.get(x, []):
+                out.append(k)
+                st.append(k)
+        return out
+
+    def exec_frac(root):
+        its = [desc[x] for x in descendants(root) if desc[x]["System.WorkItemType"] in ("User Story", "Bug", "Melhoria", "Spike")]
+        if not its:
+            return None, 0
+        w = [(i.get("Microsoft.VSTS.Scheduling.StoryPoints") or 1) for i in its]
+        return sum(a * FLOW_WEIGHT.get(i["System.State"], 0) for a, i in zip(w, its)) / sum(w), len(its)
+
+    p85 = {x["id"]: x.get("p85") for x in roadmap_horizons.get("agora", [])}
+    out = {}
+    for i in ids:
+        t = top.get(i)
+        if not t:
+            continue
+        typ, st = t["System.WorkItemType"], t["System.State"]
+        deliv, forecast = [], ""
+        if typ == "Discovery":
+            df = 1.0 if st in ("Closed", "Feito") else FLOW_WEIGHT.get(st, 0)
+            sp = [desc[x] for x in descendants(i) if desc[x]["System.WorkItemType"] == "Spike"]
+            if sp and df < 1:
+                df = max(df, 0.8 * sum(FLOW_WEIGHT.get(s["System.State"], 0) for s in sp) / len(sp))
+            root = PORTFOLIO_DELIVERY.get(i)
+            ef, n = exec_frac(root) if root else (None, 0)
+            if root and root in top:
+                deliv = [{"id": root, "title": top[root]["System.Title"], "state": top[root]["System.State"], "p85": p85.get(root)}]
+                forecast = p85.get(root) or ""
+            parts = {"disc": round(20 * df), "plan": 10 if n else 0, "exec": round(70 * (ef or 0))}
+            note = "Discovery · " + st + (f" · entrega #{root} {top[root]['System.State']}" if deliv
+                                          else (" · sem Feature de entrega vinculada" if st in ("Closed", "Feito") else ""))
+        else:
+            if st in ("Feito", "Closed", "Resolved"):
+                parts, n = {"disc": 20, "plan": 10, "exec": 70}, 0
+            else:
+                ef, n = exec_frac(i)
+                if ef is None and typ not in ("Feature", "Solicitação"):
+                    ef, n = FLOW_WEIGHT.get(st, 0), 1
+                parts = {"disc": 20, "plan": 10 if n else 0, "exec": round(70 * (ef or 0))}
+            note = typ + " · " + st + (f" · {n} itens" if n and typ in ("Feature", "Solicitação")
+                                       else (" · sem histórias criadas" if typ in ("Feature", "Solicitação") else ""))
+            forecast = p85.get(i) or ""
+        out[str(i)] = {"progress": sum(parts.values()), "parts": parts,
+                       "base": {"discState": st, "type": typ}, "disc": typ + " · " + st,
+                       "azTitle": t.get("System.Title", ""), "note": note, "deliv": deliv, "forecast": forecast}
+    print(f"  {len(out)} iniciativas com conclusão calculada")
+    return {"generated": NOW.strftime("%d/%m/%Y %H:%M"), "items": out}
+
+
 def build_priority_queue():
     print("Buscando Fila de Priorização (itens Novo/A fazer, todos os tipos)...")
     QUEUE_TYPES = "'Discovery','Feature','Solicitação','Melhoria','User Story','Bug','Spike','Incidente','Iniciativas'"
@@ -1613,6 +1706,7 @@ def main():
     html = replace_json_block(html, "completion-fronts-data", completion_fronts)
     html = replace_json_block(html, "roadmap-horizons-data", roadmap_horizons)
     html = replace_json_block(html, "metrics-v2-data", metrics_v2)
+    html = replace_json_block(html, "strategy-azure-data", build_strategy_azure(html, roadmap_horizons))
     html = replace_json_block(html, "refresh-meta-data", {"generated_at": NOW.isoformat()})
     html = replace_json_block(html, "predictability-data", predictability)
     html = replace_json_block(html, "kpi-history-data",
@@ -1622,7 +1716,7 @@ def main():
         fh.write(html)
 
     print("=== Refresh concluído com sucesso. index.html atualizado. ===")
-    print("NOTA: a aba 'Visão Estratégica' (roadmap embutido com itens de Discovery) "
+    print("Visão Estratégica: conclusão das iniciativas recalculada pelo Azure DevOps; os demais campos são editados na própria aba.") "
           "não é atualizada automaticamente por este script — segue com o snapshot manual mais recente.")
 
 
